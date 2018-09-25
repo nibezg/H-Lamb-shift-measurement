@@ -1,4 +1,6 @@
-These time periods can be used for determining what waveguide calibration file to use for the data analysis
+These time periods can be used for determining what waveguide calibration file to use for the data analysis.
+
+This is useful later on to map these time periods to a database for easier access to the correct waveguide calibration folder.
 
 # Separation: 4 cm
 # Starting data set:

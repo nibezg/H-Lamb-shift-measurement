@@ -1,0 +1,4 @@
+# Any files ending with '~' are ignored. Thus this is useful to name files ending with '~' for some comments that one does not want to include in the commit
+*~
+# Any c-compiled python files are ignored.
+*.pyc

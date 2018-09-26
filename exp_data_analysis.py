@@ -542,9 +542,9 @@ def get_krytar_109B_calib(min_det_v, max_det_v, rf_frequency_MHz = 910):
 
     # Path to the power detector calibration
     # In the lab
-    # krytar109B_pwr_det_calib_folder_path = 'C:/Users/Helium1/Google Drive/Research/Lamb shift measurement/Data'
+    krytar109B_pwr_det_calib_folder_path = 'C:/Users/Helium1/Google Drive/Research/Lamb shift measurement/Data'
     # At home
-    krytar109B_pwr_det_calib_folder_path = 'E:/Google Drive/Research/Lamb shift measurement/Data'
+    #krytar109B_pwr_det_calib_folder_path = 'E:/Google Drive/Research/Lamb shift measurement/Data'
     # KRYTAR 109B Power detector calibration folder name
     krytar109B_pwr_det_calib_folder = '170822-130101 - RF power detector calibration'
     krytar109B_pwr_det_calib_filename = 'KRYTAR 109B power calibration.CSV'

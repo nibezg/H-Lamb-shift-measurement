@@ -5,8 +5,10 @@ import sys
 import os
 import string
 import shutil
-
-sys.path.insert(0,"E:/Google Drive/Code/Python/Testing/Blah 3.7") #
+# For lab
+sys.path.insert(0,"C:/Users/Helium1/Google Drive/Research/Lamb shift measurement/Code")
+# For home
+#sys.path.insert(0,"E:/Google Drive/Code/Python/Testing/Blah 3.7")
 from exp_data_analysis import *
 
 import re
@@ -28,7 +30,10 @@ from queue import Queue
 import textwrap
 #%%
 # Location where the analyzed experiment is saved
+# Home location
 saving_folder_location = 'E:/Google Drive/Research/Lamb shift measurement/Data/FOSOF analyzed data sets'
+# Lab location
+saving_folder_location = 'C:/Research/Lamb shift measurement/Data/FOSOF analyzed data sets'
 
 # File containing parameters and comments about all of the data sets.
 exp_info_file_name = 'fosof_data_sets_info.csv'
@@ -168,7 +173,7 @@ class DataSetFOSOF():
 
         # Each subset contains the same general index that depends on the type of the experiment.
         # 'index' and 'Elapsed Time [s]' are position at the end of the list to make sure that the resulting multiindex can be sorted.
-        self.index_column_list = ['Repeat', 'Configuration', 'Average', 'index', 'Elapsed Time [s]']
+        self.index_column_list = ['Repeat', 'Configuration', 'Average', 'Elapsed Time [s]']
 
         if self.data_set_type_s['Waveguide Carrier Frequency Sweep']:
             self.index_column_list.insert(self.index_column_list.index('Configuration'), 'Waveguide Carrier Frequency [MHz]')
@@ -207,10 +212,12 @@ class DataSetFOSOF():
         # Create pd.Series containing all of the experiment parameters.
         self.exp_params_s = pd.Series(self.exp_params_dict)
 
+        # Changing the index columns of the data dataframe
+        self.exp_data_frame.set_index(self.index_column_list, inplace=True)
         # Index used for the pd.DataFrame objects. It contains names of all of the parameters that were varied (intentionally) during the acquisition process.
-        self.general_index = self.exp_data_frame.reset_index().set_index(self.index_column_list).index
+        self.general_index = self.exp_data_frame.index
         # Renaming 'index' name to 'Index' for enforcing first letter = capital letter rule
-        self.general_index.set_names('Index',level=list(self.general_index.names).index('index'), inplace=True)
+        #self.general_index.set_names('Index',level=list(self.general_index.names).index('index'), inplace=True)
 
         # Defining variables that the data analysis functions will assign the analyzed data to. These are needed so that whenever we want to call the function again, the analysis does not have to be redone. Also, most of the functions use data obtained from other function calls. We want to make it automatic for the function that needs other variables to call required functions. If the function has been called before we do not have to again wait for these functions to needlessly rerun the analysis.
 
@@ -260,7 +267,7 @@ class DataSetFOSOF():
         ''' Obtain data for the beam end faraday cup.
         '''
         if self.beam_end_dc_df is None:
-            self.beam_end_dc_df = self.exp_data_frame[self.exp_data_frame.columns[match_string_start(self.exp_data_frame.columns, 'fc')]].set_index(self.general_index)
+            self.beam_end_dc_df = self.exp_data_frame[self.exp_data_frame.columns[match_string_start(self.exp_data_frame.columns, 'fc')]]
         return self.beam_end_dc_df
 
     def get_quenching_cav_data(self):
@@ -291,7 +298,7 @@ class DataSetFOSOF():
             pre_quench_df.drop(columns=[('910','State')], inplace=True)
 
             # Combine pre-quench and post-quench data frames together
-            quenching_cavities_df = pd.concat([pre_quench_df, post_quench_df], keys=['Pre-Quench','Post-Quench'], names=['Cavity Stack Type'], axis='columns').set_index(self.general_index)
+            quenching_cavities_df = pd.concat([pre_quench_df, post_quench_df], keys=['Pre-Quench','Post-Quench'], names=['Cavity Stack Type'], axis='columns')
 
             self.quenching_cavities_df = quenching_cavities_df
 
@@ -306,7 +313,7 @@ class DataSetFOSOF():
         rf_system_power_df = self.exp_data_frame[['Waveguide A Power Reading [V]','Waveguide B Power Reading [V]']]
 
         # Restructure the dataframe a bit
-        rf_system_power_df = add_level_data_frame(rf_system_power_df.reset_index(), 'RF System', ['Waveguide A', 'Waveguide B']).drop(columns=['Other']).rename(columns={'Waveguide A': 'RF System A', 'Waveguide B': 'RF System B'}).rename(columns={'Power Reading [V]': 'RF Power Detector Reading [V]'}, level=1).set_index(self.general_index).sort_index(level='Elapsed Time [s]')
+        rf_system_power_df = add_level_data_frame(rf_system_power_df, 'RF System', ['Waveguide A', 'Waveguide B']).rename(columns={'Waveguide A': 'RF System A', 'Waveguide B': 'RF System B'}).rename(columns={'Power Reading [V]': 'RF Power Detector Reading [V]'}, level=1).sort_index(level='Elapsed Time [s]')
 
         rf_system_power_df.columns.names = ['RF System', 'Data Field']
 
@@ -317,7 +324,7 @@ class DataSetFOSOF():
         if rf_pow_det_faulty_df.shape[0] > 0:
             rf_system_power_df = rf_system_power_df.drop(rf_pow_det_faulty_df.index.values)
 
-            rf_pow_det_faulty_index_arr = rf_pow_det_faulty_df.reset_index().set_index('Index').index.values
+            rf_pow_det_faulty_index_arr = rf_pow_det_faulty_df.index.values
 
             warning_mssg = 'WARNING! Positive KRYTAR 109B voltages detected! These readings are discarded from the list of RF power detector readings. Notice, that they are not removed from the overall experiment data. Indeces corresponding to these positive readings: '+str(rf_pow_det_faulty_index_arr)
 
@@ -429,7 +436,7 @@ class DataSetFOSOF():
 
             phasor_data_df = pd.concat([detector_df, combiner_I_digi_1_df, combiner_I_digi_2_df, combiner_R_df], keys = ['Detector', 'RF Combiner I Digi 1', 'RF Combiner I Digi 2', 'RF Combiner R'], axis='columns')
 
-            phasor_data_df = phasor_data_df.set_index(self.general_index).sort_index()
+            phasor_data_df = phasor_data_df.sort_index()
             phasor_data_df.columns.rename(['Source','Data Type','Data Field'], inplace=True)
 
             self.digitizers_data_df = phasor_data_df
@@ -461,8 +468,6 @@ class DataSetFOSOF():
 
             # Calculate phase difference between the combiners.
             combiner_phase_diff_df = convert_phase_to_2pi_range((combiner_phase_df.loc[slice(None), ('RF Combiner I Digi 2', self.harmonic_name_list, 'Fourier Phase [Rad]')] - combiner_phase_df.loc[slice(None), ('RF Combiner R', self.harmonic_name_list, 'Fourier Phase [Rad]')].values)['RF Combiner I Digi 2'])
-
-            combiner_phase_diff_df.reset_index(level=['Index'], drop=True, inplace=True)
 
             A_df = combiner_phase_diff_df.xs('A', level='Configuration')
             B_df = combiner_phase_diff_df.xs('B', level='Configuration')
@@ -539,14 +544,13 @@ class DataSetFOSOF():
 
             # Shift the phases into proper multiples of 2pi.
 
-            phasor_data_for_delay_df_group = self.digitizers_data_df.loc[slice(None), (['RF Combiner I Digi 1','RF Combiner I Digi 2'], self.harmonic_name_list, 'Fourier Phase [Rad]')].T.groupby('Data Type')
+            # This is a fast way (by about a factor of 3) of shifting the phases. Here I simply act on the values of the dataframe, without use of grouping or aggregation functions, since in principle I simply need to act with the phase shifting function on each row of the dataset.
 
-            # This is how I was shifting the phases initially. However, I either do not understand how the grouped.transform function works or there is a glitch in it - but the editor glitches when I use it on the large data set. Because of that I had to make my own function that uses .transform on each group = data frame of the grouped object.
-            #phasor_data_for_delay_df = phasor_data_df.loc[slice(None), (['RF Combiner I Digi 1','RF Combiner I Digi 2'], harmonic_name_list, 'Fourier Phase [Rad]')].T.groupby('Data Type').transform(lambda x: phases_shift(x)[0]).T
-            start = time.time()
-            phasor_data_for_delay_df = group_apply_transform(phasor_data_for_delay_df_group, lambda x: phases_shift(x)[0])
-            end = time.time()
-            print(end-start)
+            phasor_data_for_delay_df = self.digitizers_data_df.loc[slice(None), (['RF Combiner I Digi 1','RF Combiner I Digi 2'], self.harmonic_name_list, 'Fourier Phase [Rad]')].copy()
+
+            for harmonic in data_set.harmonic_name_list:
+                data_arr = phasor_data_for_delay_df.loc[slice(None), (['RF Combiner I Digi 1','RF Combiner I Digi 2'], harmonic, 'Fourier Phase [Rad]')].values
+                phasor_data_for_delay_df.loc[slice(None), (['RF Combiner I Digi 1','RF Combiner I Digi 2'], harmonic, 'Fourier Phase [Rad]')] = np.array(list(map(lambda x: phases_shift(x)[0], list(data_arr))))
 
             # Calculate the phase difference between the Digitizers at the offset frequency harmonics
             digi_2_from_digi_1_delay_df.loc[slice(None), (self.harmonic_name_list, 'Fourier Phase [Rad]')] = (phasor_data_for_delay_df.loc[slice(None), ('RF Combiner I Digi 2', self.harmonic_name_list, 'Fourier Phase [Rad]')] - phasor_data_for_delay_df.loc[slice(None), ('RF Combiner I Digi 1', self.harmonic_name_list, 'Fourier Phase [Rad]')].values)['RF Combiner I Digi 2']
@@ -562,16 +566,26 @@ class DataSetFOSOF():
 
             self.digi_2_from_digi_1_delay_df = digi_2_from_digi_1_delay_df
 
-            start = time.time()
             # The averaging is done for both the Delay in digitizer samples and the Delay in microseconds.
-            digi_2_from_digi_1_mean_delay_df = digi_2_from_digi_1_delay_df.loc[slice(None), (self.harmonic_name_list, 'Delay [Sample]')].T.aggregate([np.mean, lambda x: np.std(x, ddof=1)/np.sqrt(x.shape[0])]).T.rename(columns={'mean':'Mean Inter Digitizer Delay [Sample]', '<lambda>':'Mean Inter Digitizer Delay STD [Sample]'}).join(
-            digi_2_from_digi_1_delay_df.loc[slice(None), (self.harmonic_name_list, 'Delay [us]')].T.aggregate([np.mean, lambda x: np.std(x, ddof=1)/np.sqrt(x.shape[0])]).T.rename(columns={'mean':'Mean Inter Digitizer Delay [us]', '<lambda>':'Mean Inter Digitizer Delay STD [us]'}))
 
-            end = time.time()
-            print(end-start)
+            # Here we are using a little bit different method for calculating mean and std. I could simply use pd.DataFrame.aggregate([np.mean, lambda x: np.std(x, ddof=1)/np.sqrt(x.shape[0])]), but this, for whatever reason, takes much more time (about 3 times longer). My suspicion is that in this case the aggregate function produces pd.DataFrame object, whereas is we do the aggregation separately, as done below, the output object is pd.Series. It is natural to assume that operations with pd.Series are faster than with pd.DataFrame objects. It is possible to make this operation even faster, by not using aggragate function alltogether, but instead acting with np.mean and np.std on pd.DataFrame.values arrays. This is what I am doing below
 
-            digi_2_from_digi_1_mean_delay_df = digi_2_from_digi_1_mean_delay_df.set_index(self.general_index).sort_index()
+            mean_df = pd.DataFrame(np.mean(digi_2_from_digi_1_delay_df.loc[slice(None), (self.harmonic_name_list, 'Delay [Sample]')], axis='columns')).rename(columns={0: 'Mean Inter Digitizer Delay [Sample]'})
+
+            std_df = pd.DataFrame(np.std(digi_2_from_digi_1_delay_df.loc[slice(None), (self.harmonic_name_list, 'Delay [Sample]')], axis='columns')/np.sqrt(len(self.harmonic_name_list)-1)).rename(columns={0: 'Mean Inter Digitizer Delay STD [Sample]'})
+
+            mean_inter_digi_delay_sample_df = mean_df.join(std_df)
+
+            mean_df = pd.DataFrame(np.mean(digi_2_from_digi_1_delay_df.loc[slice(None), (self.harmonic_name_list, 'Delay [us]')], axis='columns')).rename(columns={0: 'Mean Inter Digitizer Delay [us]'})
+
+            std_df = pd.DataFrame(np.std(digi_2_from_digi_1_delay_df.loc[slice(None), (self.harmonic_name_list, 'Delay [us]')], axis='columns')/np.sqrt(len(self.harmonic_name_list)-1)).rename(columns={0: 'Mean Inter Digitizer Delay STD [us]'})
+
+            mean_inter_digi_delay_time_df = mean_df.join(std_df)
+
+            digi_2_from_digi_1_mean_delay_df = mean_inter_digi_delay_sample_df.join(mean_inter_digi_delay_time_df)
+
             digi_2_from_digi_1_mean_delay_df.columns.set_names('Data Field', inplace=True)
+
 
             self.digi_2_from_digi_1_mean_delay_df = digi_2_from_digi_1_mean_delay_df
 
@@ -618,7 +632,7 @@ class DataSetFOSOF():
                 self.get_phase_diff_data()
 
             # List of columns by which to group the phase data for averaging set averaging
-            averaging_set_grouping_list = remove_sublist(ini_list=self.general_index.names, remove_list=['Average', 'Index', 'Elapsed Time [s]'])
+            averaging_set_grouping_list = remove_sublist(ini_list=self.general_index.names, remove_list=['Average', 'Elapsed Time [s]'])
 
             phase_diff_group = self.phase_diff_data_df.groupby(averaging_set_grouping_list)
             # For the subsequent analysis we assume that the phases of the phasors are normally distributed (for the Phase Averaging method), as well as A*cos(phi) and A*sin(phi) of the phasors - its x and y components, where A = amplitude of the given phasor and phi is its phase (for the Phasor Averaging and Phasor Averaging Relative To DC ). We also assume that the average amplitude of the phasors relative to DC are normally distributed (For Phasor Averaging Relative To DC, but not for calculation of the phase, but for estimation of FOSOF relative amplitude, when averaging amplitude relative to dc obtained from each averaging set for the given Waveguide carrier frequency).
@@ -626,7 +640,14 @@ class DataSetFOSOF():
             # Notice that it seems that NONE of these quantities exactly normally distributed. But it seems to be intuitive, that if the signal is not too weak, then the errors have to be small and in that case the quantities are approximately normally distributed.
 
             # Shift all of the phase subsets, corresponding to their respective averaging set, in proper quadrants.
+            start = time.time()
+
             phase_shifted_df = self.phase_diff_data_df.loc[slice(None), (slice(None),slice(None), 'Fourier Phase [Rad]')].groupby(averaging_set_grouping_list).transform(lambda x: phases_shift(x)[0])
+
+            end = time.time()
+            print(end-start)
+            #phase_shifted_df = group_apply_transform(self.phase_diff_data_df.loc[slice(None), (slice(None),slice(None), 'Fourier Phase [Rad]')].groupby(averaging_set_grouping_list), lambda x: phases_shift(x)[0])
+
             phase_diff_shifted_data_df = self.phase_diff_data_df.copy()
             phase_diff_shifted_data_df.loc[slice(None), (slice(None), slice(None), 'Fourier Phase [Rad]')] = phase_shifted_df
 
@@ -643,12 +664,18 @@ class DataSetFOSOF():
                 df_grouped = df.groupby(averaging_set_grouping_list)
 
                 phases_averaged_df = df_grouped.aggregate({np.mean, np.std, lambda x: x.shape[0], phase_angle_range})
+
                 phases_averaged_df.columns = phases_averaged_df.columns.droplevel(0)
                 return phases_averaged_df
+
+            start = time.time()
 
             phase_av_df = phase_diff_shifted_data_df.loc[slice(None), (slice(None), slice(None), 'Fourier Phase [Rad]')].groupby(level=['Source', 'Data Type'], axis='columns').apply(phase_av)
 
             phase_av_df.rename(columns={'mean': 'Phase [Rad]', 'std': 'Phase STD [Rad]', '<lambda>': 'Number Of Averaged Data Points', 'phase_angle_range': 'Range Of Phases [Deg]'}, inplace=True)
+
+            end = time.time()
+            print(end-start)
 
             # Phasor Averaging
             # The assumption is that DC of the signal is the same for the duration of the averaging set. This way we can simply take the amplitudes and phases of the phasors and average them together to obtain a single averaged phasor.
@@ -674,7 +701,12 @@ class DataSetFOSOF():
                 data_dict = get_column_data_dict(x, col_list)
                 return mean_phasor(amp_arr=data_dict['Fourier Amplitude [V]'], phase_arr=data_dict['Fourier Phase [Rad]'])
 
+            start = time.time()
+
             phasor_av_df = phase_diff_shifted_data_df.loc[slice(None), (slice(None), slice(None), ['Fourier Phase [Rad]','Fourier Amplitude [V]'])].groupby(level=['Source', 'Data Type'], axis='columns').apply(phasor_av)
+
+            end = time.time()
+            print(end-start)
 
             phasor_av_df.rename(columns={'Number Of Averaged Phasors': 'Number Of Averaged Data Points'}, inplace=True)
 
@@ -690,9 +722,10 @@ class DataSetFOSOF():
                 else:
                     mean_SNR_val = np.nan
                 return mean_SNR_val
-
+            start = time.time()
             av_set_SNR_df = phase_diff_shifted_data_df.loc[slice(None), (slice(None), slice(None), 'SNR')].groupby(averaging_set_grouping_list).aggregate(get_av_set_SNR)
-
+            end = time.time()
+            print(end-start)
             # Combine the averaging set SNR with the averaged phasor data
             phasor_av_df = phasor_av_df.join(av_set_SNR_df).sort_index(axis='columns')
 
@@ -718,7 +751,7 @@ class DataSetFOSOF():
 
             # We assume that for the given repeat, offset frequency, B Field, and pre-910 state all of the phasors obtained should have the same average SNR and thus the same true standard deviation for phase and amplitude at the given offset frequency. That is why we calculate the RMS quantities below. Now, this assumption might be wrong, especially when we have the beam that deteriorates over time or when the beam is such that it abruptly changes its mode of operation (we see it sometimes). When we have scan through offset frequencies and other additional parameters, then it takes even more time to acquire single repeat, thus the chance for the standard deviation to change is even larger. The additional assumption is that the RF scan range is small enough for there to be no appreciable variation in SNR with the RF frequency.
 
-            rms_repeat_grouping_list = remove_sublist(ini_list=self.general_index.names, remove_list=['Index', 'Elapsed Time [s]', 'Waveguide Carrier Frequency [MHz]', 'Average', 'Configuration'])
+            rms_repeat_grouping_list = remove_sublist(ini_list=self.general_index.names, remove_list=['Elapsed Time [s]', 'Waveguide Carrier Frequency [MHz]', 'Average', 'Configuration'])
 
             phase_av_set_df_index_names_list = list(phase_av_set_df.index.names)
 
@@ -726,7 +759,6 @@ class DataSetFOSOF():
 
             data_rms_std_df = phase_av_set_group.apply(lambda df: pd.Series(pooled_std(df.loc[slice(None), (slice(None), slice(None), slice(None), 'Phase STD [Rad]')].values
             , df.loc[slice(None), (slice(None), slice(None), slice(None), 'Number Of Averaged Data Points')].values), index=df.loc[slice(None), (slice(None), slice(None), slice(None), 'Phase STD [Rad]')].columns))
-
 
             data_rms_std_df.rename(columns={'Phase STD [Rad]': 'Phase RMS Repeat STD [Rad]'}, level='Data Field', inplace=True)
 
@@ -739,22 +771,16 @@ class DataSetFOSOF():
             # Another way to calculate the STD of the phases is to assume that the standard deviation is the same for the data for the same averaging set, which includes phases obtained for the same B field, pre-quench 910 state, repeat and waveguide carrier frequency. The configuration can be either A and B, of course.
 
             # Note that later on, when calculating A-B phases, the standard deviation that we get from combining this types of STD and simply STD determining for each configuration and averaging set, are exactly the same. Thus in a sense we are not getting any advantage of performing this type of calculation.
-            rms_av_set_grouping_list = remove_sublist(ini_list=self.general_index.names, remove_list=['Index', 'Elapsed Time [s]', 'Average', 'Configuration'])
+            rms_av_set_grouping_list = remove_sublist(ini_list=self.general_index.names, remove_list=['Elapsed Time [s]', 'Average', 'Configuration'])
 
             phase_av_set_group = phase_av_set_next_df.groupby(rms_av_set_grouping_list)
-
-            start = time.time()
 
             data_rms_std_df = phase_av_set_group.apply(
                         lambda df: pd.Series(pooled_std(df.loc[slice(None), (slice(None), slice(None), slice(None), 'Phase STD [Rad]')].values
                         , df.loc[slice(None), (slice(None), slice(None), slice(None), 'Number Of Averaged Data Points')].values), index=df.loc[slice(None), (slice(None), slice(None), slice(None), 'Phase STD [Rad]')].columns)
                         )
-            end = time.time()
-
-            print(end-start)
 
             data_rms_std_df.rename(columns={'Phase STD [Rad]': 'Phase RMS Averaging Set STD [Rad]'}, level='Data Field', inplace=True)
-
 
             phase_av_set_next_df = phase_av_set_next_df.reset_index().set_index(rms_av_set_grouping_list).join(data_rms_std_df, how='inner').reset_index().set_index(phase_av_set_df_index_names_list).sort_index(axis='columns')
 
@@ -1399,22 +1425,10 @@ fig, ax = plt.subplots()
 ax = data_set.get_krytar_109B_calib_plot(ax)
 plt.show()
 #%%
-
 digi_df = data_set.get_digitizers_data()
-start = time.time()
 comb_phase_diff_df = data_set.get_combiners_phase_diff_data()
-end = time.time()
-print('One: ' + str(end-start))
-
-start = time.time()
 digi_delay_df = data_set.get_inter_digi_delay_data()
-end = time.time()
-print('Two: ' + str(end-start))
-start = time.time()
 phase_diff_df = data_set.get_phase_diff_data()
-end = time.time()
-print('Three: ' + str(end-start))
-
 #%%
 start = time.time()
 phase_av_set_averaged_df = data_set.average_av_sets()
@@ -1434,3 +1448,4 @@ end = time.time()
 print(end-start)
 #%%
 fosof_ampl_df
+#%%

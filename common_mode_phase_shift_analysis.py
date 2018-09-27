@@ -6,7 +6,8 @@ import sys
 import os
 import string
 
-sys.path.insert(0,"C:/Users/Helium1/Google Drive/Code/Python/Testing/Blah") #
+# For the lab
+sys.path.insert(0,"C:/Users/Helium1/Google Drive/Research/Lamb shift measurement/Code") #
 from exp_data_analysis import *
 from fosof_data_set_analysis import *
 import re
@@ -74,7 +75,25 @@ exp_folder_name_list = [
 '180919-151546 - FOSOF Common-mode phase drift systematic test - pi config, 18 V per cm 910 MHz. No atoms. Under vacuum',
 '180919-155358 - FOSOF Common-mode phase drift systematic test - 0 config, 18 V per cm 910 MHz. No atoms. Under vacuum',
 '180919-162415 - FOSOF Common-mode phase drift systematic test - 0 config, 18 V per cm 910 MHz. No atoms. Under vacuum',
-'180919-165749 - FOSOF Common-mode phase drift systematic test - pi config, 18 V per cm 910 MHz. No atoms. Under vacuum'
+'180919-165749 - FOSOF Common-mode phase drift systematic test - pi config, 18 V per cm 910 MHz. No atoms. Under vacuum',
+'180921-151123 - FOSOF Common-mode phase drift systematic test - pi config, 18 V per cm 910 MHz. No atoms. Under vacuum',
+'180921-154352 - FOSOF Common-mode phase drift systematic test - 0 config, 18 V per cm 910 MHz. No atoms. Under vacuum',
+'180921-173315 - FOSOF Common-mode phase drift systematic test - 0 config, 18 V per cm 910 MHz. No atoms. Under vacuum',
+'180921-181640 - FOSOF Common-mode phase drift systematic test - pi config, 18 V per cm 910 MHz. No atoms. Under vacuum',
+'180926-112856 - FOSOF Common-mode phase drift systematic test - 0 config, 18 V per cm 910 MHz. No atoms. Under vacuum',
+'180926-120804 - FOSOF Common-mode phase drift systematic test - pi config, 18 V per cm 910 MHz. No atoms. Under vacuum',
+'180926-123828 - FOSOF Common-mode phase drift systematic test - pi config, 18 V per cm 910 MHz. No atoms. Under vacuum',
+'180926-131141 - FOSOF Common-mode phase drift systematic test - 0 config, 18 V per cm 910 MHz. No atoms. Under vacuum',
+'180926-134923 - FOSOF Common-mode phase drift systematic test - 0 config, 18 V per cm 910 MHz. No atoms. Under vacuum',
+'180926-142021 - FOSOF Common-mode phase drift systematic test - pi config, 18 V per cm 910 MHz. No atoms. Under vacuum',
+'180926-145221 - FOSOF Common-mode phase drift systematic test - pi config, 18 V per cm 910 MHz. No atoms. Under vacuum',
+'180926-152340 - FOSOF Common-mode phase drift systematic test - 0 config, 18 V per cm 910 MHz. No atoms. Under vacuum',
+'180926-155631 - FOSOF Common-mode phase drift systematic test - 0 config, 18 V per cm 910 MHz. No atoms. Under vacuum',
+'180926-163149 - FOSOF Common-mode phase drift systematic test - pi config, 18 V per cm 910 MHz. No atoms. Under vacuum',
+'180926-170134 - FOSOF Common-mode phase drift systematic test - pi config, 18 V per cm 910 MHz. No atoms. Under vacuum',
+'180926-173412 - FOSOF Common-mode phase drift systematic test - 0 config, 18 V per cm 910 MHz. No atoms. Under vacuum',
+'180927-131104 - FOSOF Common-mode phase drift systematic test - pi config, 18 V per cm 910 MHz. No atoms. Under vacuum'
+
 ]
 
 phase_drift_data_set_df = None
@@ -180,7 +199,23 @@ test_26_s = phase_drift_data_df['180919-155358 - FOSOF Common-mode phase drift s
 
 test_27_s = phase_drift_data_df['180919-162415 - FOSOF Common-mode phase drift systematic test - 0 config, 18 V per cm 910 MHz. No atoms. Under vacuum'] - phase_drift_data_df['180919-165749 - FOSOF Common-mode phase drift systematic test - pi config, 18 V per cm 910 MHz. No atoms. Under vacuum']
 
-phase_shift_systematic_df = pd.DataFrame([test_1_s, test_2_s, test_3_s, test_4_s, test_5_s, test_6_s, test_7_s, test_8_s, test_9_s, test_10_s, test_11_s, test_12_s, test_13_s, test_14_s, test_15_s, test_16_s, test_17_s, test_18_s, test_19_s, test_20_s, test_21_s, test_22_s, test_23_s, test_24_s, test_25_s, test_26_s, test_27_s])
+test_28_s = phase_drift_data_df['180921-154352 - FOSOF Common-mode phase drift systematic test - 0 config, 18 V per cm 910 MHz. No atoms. Under vacuum'] - phase_drift_data_df['180921-151123 - FOSOF Common-mode phase drift systematic test - pi config, 18 V per cm 910 MHz. No atoms. Under vacuum']
+
+test_29_s = phase_drift_data_df['180921-173315 - FOSOF Common-mode phase drift systematic test - 0 config, 18 V per cm 910 MHz. No atoms. Under vacuum'] - phase_drift_data_df['180921-181640 - FOSOF Common-mode phase drift systematic test - pi config, 18 V per cm 910 MHz. No atoms. Under vacuum']
+
+test_30_s = phase_drift_data_df['180926-112856 - FOSOF Common-mode phase drift systematic test - 0 config, 18 V per cm 910 MHz. No atoms. Under vacuum'] - phase_drift_data_df['180926-120804 - FOSOF Common-mode phase drift systematic test - pi config, 18 V per cm 910 MHz. No atoms. Under vacuum']
+
+test_31_s = phase_drift_data_df['180926-131141 - FOSOF Common-mode phase drift systematic test - 0 config, 18 V per cm 910 MHz. No atoms. Under vacuum'] - phase_drift_data_df['180926-123828 - FOSOF Common-mode phase drift systematic test - pi config, 18 V per cm 910 MHz. No atoms. Under vacuum']
+
+test_32_s = phase_drift_data_df['180926-134923 - FOSOF Common-mode phase drift systematic test - 0 config, 18 V per cm 910 MHz. No atoms. Under vacuum'] - phase_drift_data_df['180926-142021 - FOSOF Common-mode phase drift systematic test - pi config, 18 V per cm 910 MHz. No atoms. Under vacuum']
+
+test_33_s = phase_drift_data_df['180926-152340 - FOSOF Common-mode phase drift systematic test - 0 config, 18 V per cm 910 MHz. No atoms. Under vacuum'] - phase_drift_data_df['180926-145221 - FOSOF Common-mode phase drift systematic test - pi config, 18 V per cm 910 MHz. No atoms. Under vacuum']
+
+test_34_s = phase_drift_data_df['180926-155631 - FOSOF Common-mode phase drift systematic test - 0 config, 18 V per cm 910 MHz. No atoms. Under vacuum'] - phase_drift_data_df['180926-163149 - FOSOF Common-mode phase drift systematic test - pi config, 18 V per cm 910 MHz. No atoms. Under vacuum']
+
+test_35_s = phase_drift_data_df['180926-173412 - FOSOF Common-mode phase drift systematic test - 0 config, 18 V per cm 910 MHz. No atoms. Under vacuum'] - phase_drift_data_df['180926-170134 - FOSOF Common-mode phase drift systematic test - pi config, 18 V per cm 910 MHz. No atoms. Under vacuum']
+
+phase_shift_systematic_df = pd.DataFrame([test_1_s, test_2_s, test_3_s, test_4_s, test_5_s, test_6_s, test_7_s, test_8_s, test_9_s, test_10_s, test_11_s, test_12_s, test_13_s, test_14_s, test_15_s, test_16_s, test_17_s, test_18_s, test_19_s, test_20_s, test_21_s, test_22_s, test_23_s, test_24_s, test_25_s, test_26_s, test_27_s, test_28_s, test_29_s, test_30_s, test_31_s, test_32_s, test_33_s, test_34_s, test_35_s])
 
 # Here we divide by 2, because the Combiner I and Combiner R difference calculated was including the A and B difference, but this particular difference was not divided by 2 in the code.
 phase_shift_systematic_df['Mean Combiner Phase Difference [Rad]'] = phase_shift_systematic_df['Mean Combiner Phase Difference [Rad]']*1E3/2
@@ -198,9 +233,12 @@ phase_shift_systematic_df
 av_phase_shift_systematic_df = phase_shift_systematic_df.drop([0, 1, 2, 7, 8, 9, 10]).aggregate(lambda x: np.mean(x))
 av_phase_shift_systematic_df
 #%%
-shift = (10.5+9+7.5+6.7+8.4)*av_phase_shift_systematic_df['Mean Phase Difference Change [mrad]']/5
+# Dropping data when the Box was under atmospheric pressure.
+av_phase_shift_systematic_df = phase_shift_systematic_df.aggregate(lambda x: np.mean(x))
+av_phase_shift_systematic_df
 #%%
-shift = (10.5+9+7.5+6.7+8.4)*0.3/5
+shift = (10.5+9+7.5+6.7+8.4)*av_phase_shift_systematic_df['Mean Phase Difference Change [mrad]']/5
+
 shift
 #%%
 np.sqrt(2.9**2+shift**2)
@@ -267,7 +305,3 @@ data_arr_min = np.min((comb_phase_diff_df['First Harmonic', 'Fourier Phase [Rad]
 axes[1, 1].set_ylim(data_arr_min, data_arr_max)
 
 plt.show()
-#%%
-np.sqrt(36+100)
-#%%
-42/11.6

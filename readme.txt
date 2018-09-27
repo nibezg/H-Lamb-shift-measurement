@@ -1,5 +1,9 @@
 Code for analysis of the data for the n=2 Lamb Shift measurement is presented here.
 
+2018-09-28 (14:07)
+
+- Fixed some bugs. Now the code can be ran, except for pre-910 switching analysis, where it is still using the old averaging function for averaging the FOSOF phases. Need to fix this later.
+
 2018-09-28 (12:38)
 
 - Added better fosof data analysis code version control. I assume that all of the previous code was of v0.1. This code is changed to v0.2

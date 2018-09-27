@@ -1,6 +1,12 @@
 Code for analysis of the data for the n=2 Lamb Shift measurement is presented here.
 
+2018-09-28 (12:38)
+
+- Added better fosof data analysis code version control. I assume that all of the previous code was of v0.1. This code is changed to v0.2
+
+
 2018-09-27 (00:38)
+
 - Additional speed improvements. Compared to about a week ago, the FOSOF analysis code runs a bit more than 10 times faster. There are still little things to fix here and there, however. Example of this is to run the fosof_data_set_analysis.py for different types of experiment folders to make sure there are not errors. I can also try to modify the saving routine, so that instead of saving text files, I will save pickled objects.
 
 2018-09-26 (15:28)

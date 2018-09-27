@@ -39,11 +39,14 @@ saving_folder_location = 'C:/Research/Lamb shift measurement/Data/FOSOF analyzed
 exp_info_file_name = 'fosof_data_sets_info.csv'
 exp_info_index_name = 'Experiment Folder Name'
 
-# Analysis version
-version_number = 0.1
+# Analysis version of the analyzed raw data file to use
+raw_data_analyzed_`version_number` = 0.1
+
+# FOSOF data set analysis version_number
+version_number = 0.2
 
 # Analyzed data file name
-data_analyzed_file_name = 'data_analyzed v' + str(version_number) + '.txt'
+data_analyzed_file_name = 'data_analyzed v' + str(raw_data_analyzed_version_number) + '.txt'
 
 analyzed_data_folder = 'Data Analysis ' + str(version_number)
 
@@ -1514,16 +1517,12 @@ class DataSetFOSOF():
         else:
             print('Folder with saved analysis data is not present')
 #%%
-#data_set = DataSetFOSOF(exp_folder_name='180626-233004 - FOSOF Acquisition 910 onoff (50 pct)  - pi config, 24 V per cm PD 120V, 908-912 MHz', load_data_Q=False)
-data_set = DataSetFOSOF(exp_folder_name='180702-020825 - FOSOF Acquisition - 0 config, 8 V per cm PD 120 V, 49.86 kV, 908-912 MHz. B_x scan', load_data_Q=False)
-
-
+data_set = DataSetFOSOF(exp_folder_name='180626-233004 - FOSOF Acquisition 910 onoff (50 pct)  - pi config, 24 V per cm PD 120V, 908-912 MHz', load_data_Q=False)
+#data_set = DataSetFOSOF(exp_folder_name='180702-020825 - FOSOF Acquisition - 0 config, 8 V per cm PD 120 V, 49.86 kV, 908-912 MHz. B_x scan', load_data_Q=False)
 #data_set.save_analysis_data()
 #%%
 fc_df = data_set.get_fc_data()
-#%%
 quenching_df = data_set.get_quenching_cav_data()
-#%%
 rf_pow_df = data_set.get_rf_sys_pwr_det_data()
 fig, ax = plt.subplots()
 ax = data_set.get_krytar_109B_calib_plot(ax)

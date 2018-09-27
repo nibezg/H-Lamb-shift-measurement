@@ -1,5 +1,9 @@
 Code for analysis of the data for the n=2 Lamb Shift measurement is presented here.
 
+2018-09-28 (15:07)
+- Improved the common_mode_phase_shift_analysis.py code. Now the analysis of data will be much faster, because the previously analyzed data is stored in a .csv file.
+
+
 2018-09-28 (14:07)
 
 - Fixed some bugs. Now the code can be ran, except for pre-910 switching analysis, where it is still using the old averaging function for averaging the FOSOF phases. Need to fix this later.

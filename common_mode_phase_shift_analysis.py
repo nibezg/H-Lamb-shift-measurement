@@ -21,6 +21,13 @@ import scipy.interpolate
 
 import matplotlib.pyplot as plt
 #%%
+# Folder for storing the phase drift data
+analysis_data_folder = 'C:/Research/Lamb shift measurement/Data/Common-mode phase systematic study'
+
+# Phase drift data csv file
+phase_analysis_file_name = 'phase_analysis'+'.txt'
+
+#%%
 exp_folder_name_list = [
 '180831-155219 - FOSOF Common-mode phase drift systematic test - 0 config, 18 V per cm 910 MHz. No atoms',
 '180831-163511 - FOSOF Common-mode phase drift systematic test - pi config, 18 V per cm 910 MHz. No atoms',
@@ -92,56 +99,77 @@ exp_folder_name_list = [
 '180926-163149 - FOSOF Common-mode phase drift systematic test - pi config, 18 V per cm 910 MHz. No atoms. Under vacuum',
 '180926-170134 - FOSOF Common-mode phase drift systematic test - pi config, 18 V per cm 910 MHz. No atoms. Under vacuum',
 '180926-173412 - FOSOF Common-mode phase drift systematic test - 0 config, 18 V per cm 910 MHz. No atoms. Under vacuum',
-'180927-131104 - FOSOF Common-mode phase drift systematic test - pi config, 18 V per cm 910 MHz. No atoms. Under vacuum'
-
+'180927-131104 - FOSOF Common-mode phase drift systematic test - pi config, 18 V per cm 910 MHz. No atoms. Under vacuum',
+'180927-135015 - FOSOF Common-mode phase drift systematic test - 0 config, 18 V per cm 910 MHz. No atoms. Under vacuum'
 ]
+#%%
+# Load the phase data file
 
-phase_drift_data_set_df = None
+os.chdir(analysis_data_folder)
 
-for exp_folder_name in exp_folder_name_list:
+phase_drift_data_set_df = pd.read_csv(filepath_or_buffer=phase_analysis_file_name, delimiter=',', comment='#', header=0, skip_blank_lines=True, index_col=0)
 
-    data_set = DataSetFOSOF(exp_folder_name=exp_folder_name, load_data_Q=True)
-    data_set.save_analysis_data()
+# We now want to see if there are any new experiments that are not in this folder.
+exp_folder_name_to_analyze_list = list(set(exp_folder_name_list) - set(phase_drift_data_set_df.index.values))
 
-    digi_df = data_set.get_digitizers_data()
-    comb_phase_diff_df = data_set.get_combiners_phase_diff_data()
-    digi_delay_df = data_set.get_inter_digi_delay_data()
-    phase_diff_df = data_set.get_phase_diff_data()
-    phase_av_set_averaged_df = data_set.average_av_sets()
+# This is needed for adding data later to this dataframe
+phase_drift_data_set_df = phase_drift_data_set_df.T
 
-    phase_A_minus_B_df, phase_freq_response_df = data_set.cancel_out_freq_response()
-    #fosof_ampl_df, fosof_phase_df = data_set.average_FOSOF_over_repeats()
+# Perform the analysis on the experiments for which the analysis was not performed before.
 
-    inter_comb_phase_diff_df = phase_A_minus_B_df.loc[slice(None), (slice(None), slice(None), 'Phasor Averaging', ['Phase [Rad]', 'Phase STD [Rad]'])]
+if len(exp_folder_name_to_analyze_list) > 0:
+    for exp_folder_name in exp_folder_name_to_analyze_list:
 
-    inter_comb_phase_diff_grouped_df = inter_comb_phase_diff_df.reorder_levels(axis='columns', order=['Averaging Type', 'Fourier Harmonic', 'Phase Reference Type', 'Data Field']).sort_index(axis='columns').groupby(level=['Fourier Harmonic'], axis='columns')
+        data_set = DataSetFOSOF(exp_folder_name=exp_folder_name, load_data_Q=True)
+        data_set.save_analysis_data()
 
-    df = inter_comb_phase_diff_grouped_df.get_group(('First Harmonic'))
-    df.columns = df.columns.droplevel(level=['Averaging Type', 'Fourier Harmonic'])
+        digi_df = data_set.get_digitizers_data()
+        comb_phase_diff_df = data_set.get_combiners_phase_diff_data()
+        digi_delay_df = data_set.get_inter_digi_delay_data()
+        phase_diff_df = data_set.get_phase_diff_data()
+        phase_av_set_averaged_df = data_set.average_av_sets()
 
-    # Calculate the phase difference between inter-waveguide combiner and other combiners + the standard deviation. The logic behind the calculation is shown on p.30 of Lab Notes #4 (August 31, 2018).
-    # The standard deviation is not calculated correctly, due to correlations hidden in the phase difference (inter-waveguide phase difference is common to both of the calculations). Probably this is not even that important.
+        phase_A_minus_B_df, phase_freq_response_df = data_set.cancel_out_freq_response()
+        #fosof_ampl_df, fosof_phase_df = data_set.average_FOSOF_over_repeats()
 
-    df.loc[slice(None), 'Phase Difference [Rad]'] = (1/4*df['RF Combiner I Reference', 'Phase [Rad]'].values + 1/4*df['RF Combiner R Reference', 'Phase [Rad]'].values)
+        inter_comb_phase_diff_df = phase_A_minus_B_df.loc[slice(None), (slice(None), slice(None), 'Phasor Averaging', ['Phase [Rad]', 'Phase STD [Rad]'])]
 
-    df.loc[slice(None), 'Phase Difference STD [Rad]'] = np.sqrt((1/4*df['RF Combiner I Reference', 'Phase STD [Rad]'].values)**2 + (1/4*df['RF Combiner R Reference', 'Phase STD [Rad]'].values)**2)
+        inter_comb_phase_diff_grouped_df = inter_comb_phase_diff_df.reorder_levels(axis='columns', order=['Averaging Type', 'Fourier Harmonic', 'Phase Reference Type', 'Data Field']).sort_index(axis='columns').groupby(level=['Fourier Harmonic'], axis='columns')
 
-    # Notice that the FOSOF phases that we had are from RF CHA - RF CH B calculation, WITHOUT division by 2. Thus we have to divide it here by 2.
-    df.loc[slice(None), 'Phase Difference [Rad]'] = 1/2 * df.loc[slice(None), 'Phase Difference [Rad]']
+        df = inter_comb_phase_diff_grouped_df.get_group(('First Harmonic'))
+        df.columns = df.columns.droplevel(level=['Averaging Type', 'Fourier Harmonic'])
 
-    df.loc[slice(None), 'Phase Difference STD [Rad]'] = 1/2 * df.loc[slice(None), 'Phase Difference STD [Rad]']
+        # Calculate the phase difference between inter-waveguide combiner and other combiners + the standard deviation. The logic behind the calculation is shown on p.30 of Lab Notes #4 (August 31, 2018).
+        # The standard deviation is not calculated correctly, due to correlations hidden in the phase difference (inter-waveguide phase difference is common to both of the calculations). Probably this is not even that important.
 
-    phase_drift_df = pd.DataFrame(pd.Series({
-        'Data Set': data_set,
-        'Mean Combiner Phase Difference [Rad]': np.mean(comb_phase_diff_df['First Harmonic', 'Fourier Phase [Rad]']),
-        'Mean Phase Difference [Rad]': np.mean(df['Phase Difference [Rad]']),
-        'Mean Combiner I Phase [Rad]': np.mean(df['RF Combiner I Reference', 'Phase [Rad]']),
-        'Mean Combiner R Phase [Rad]': np.mean(df['RF Combiner R Reference', 'Phase [Rad]'])}, name=exp_folder_name))
+        df.loc[slice(None), 'Phase Difference [Rad]'] = (1/4*df['RF Combiner I Reference', 'Phase [Rad]'].values + 1/4*df['RF Combiner R Reference', 'Phase [Rad]'].values)
 
-    if phase_drift_data_set_df is None:
-        phase_drift_data_set_df = phase_drift_df
-    else:
-        phase_drift_data_set_df = phase_drift_data_set_df.join(phase_drift_df)
+        df.loc[slice(None), 'Phase Difference STD [Rad]'] = np.sqrt((1/4*df['RF Combiner I Reference', 'Phase STD [Rad]'].values)**2 + (1/4*df['RF Combiner R Reference', 'Phase STD [Rad]'].values)**2)
+
+        # Notice that the FOSOF phases that we had are from RF CHA - RF CH B calculation, WITHOUT division by 2. Thus we have to divide it here by 2.
+        df.loc[slice(None), 'Phase Difference [Rad]'] = 1/2 * df.loc[slice(None), 'Phase Difference [Rad]']
+
+        df.loc[slice(None), 'Phase Difference STD [Rad]'] = 1/2 * df.loc[slice(None), 'Phase Difference STD [Rad]']
+
+        phase_drift_df = pd.DataFrame(pd.Series({
+            'Data Set': data_set,
+            'Mean Combiner Phase Difference [Rad]': np.mean(comb_phase_diff_df['First Harmonic', 'Fourier Phase [Rad]']),
+            'Mean Phase Difference [Rad]': np.mean(df['Phase Difference [Rad]']),
+            'Mean Combiner I Phase [Rad]': np.mean(df['RF Combiner I Reference', 'Phase [Rad]']),
+            'Mean Combiner R Phase [Rad]': np.mean(df['RF Combiner R Reference', 'Phase [Rad]'])}, name=exp_folder_name))
+
+        if phase_drift_data_set_df is None:
+            phase_drift_data_set_df = phase_drift_df
+        else:
+            phase_drift_data_set_df = phase_drift_data_set_df.join(phase_drift_df)
+
+    os.chdir(analysis_data_folder)
+
+    # Saving the data frame containing information about loading the data.
+    phase_drift_data_set_df.T.to_csv(path_or_buf='phase_analysis'+'.txt', header=True)
+else:
+    print("No new experiments were found.")
+
 #%%
 phase_drift_data_df = phase_drift_data_set_df.drop(axis='index', labels='Data Set')
 
@@ -215,7 +243,9 @@ test_34_s = phase_drift_data_df['180926-155631 - FOSOF Common-mode phase drift s
 
 test_35_s = phase_drift_data_df['180926-173412 - FOSOF Common-mode phase drift systematic test - 0 config, 18 V per cm 910 MHz. No atoms. Under vacuum'] - phase_drift_data_df['180926-170134 - FOSOF Common-mode phase drift systematic test - pi config, 18 V per cm 910 MHz. No atoms. Under vacuum']
 
-phase_shift_systematic_df = pd.DataFrame([test_1_s, test_2_s, test_3_s, test_4_s, test_5_s, test_6_s, test_7_s, test_8_s, test_9_s, test_10_s, test_11_s, test_12_s, test_13_s, test_14_s, test_15_s, test_16_s, test_17_s, test_18_s, test_19_s, test_20_s, test_21_s, test_22_s, test_23_s, test_24_s, test_25_s, test_26_s, test_27_s, test_28_s, test_29_s, test_30_s, test_31_s, test_32_s, test_33_s, test_34_s, test_35_s])
+test_36_s = phase_drift_data_df['180927-135015 - FOSOF Common-mode phase drift systematic test - 0 config, 18 V per cm 910 MHz. No atoms. Under vacuum'] - phase_drift_data_df['180927-131104 - FOSOF Common-mode phase drift systematic test - pi config, 18 V per cm 910 MHz. No atoms. Under vacuum']
+
+phase_shift_systematic_df = pd.DataFrame([test_1_s, test_2_s, test_3_s, test_4_s, test_5_s, test_6_s, test_7_s, test_8_s, test_9_s, test_10_s, test_11_s, test_12_s, test_13_s, test_14_s, test_15_s, test_16_s, test_17_s, test_18_s, test_19_s, test_20_s, test_21_s, test_22_s, test_23_s, test_24_s, test_25_s, test_26_s, test_27_s, test_28_s, test_29_s, test_30_s, test_31_s, test_32_s, test_33_s, test_34_s, test_35_s, test_36_s])
 
 # Here we divide by 2, because the Combiner I and Combiner R difference calculated was including the A and B difference, but this particular difference was not divided by 2 in the code.
 phase_shift_systematic_df['Mean Combiner Phase Difference [Rad]'] = phase_shift_systematic_df['Mean Combiner Phase Difference [Rad]']*1E3/2
@@ -229,21 +259,33 @@ phase_shift_systematic_df.plot(y='Mean Phase Difference Change [mrad]', use_inde
 plt.show()
 phase_shift_systematic_df
 #%%
+phase_shift_systematic_df['Shift [kHz]'] = phase_shift_systematic_df['Mean Phase Difference Change [mrad]'] * (10.5+9+7.5+6.7+8.4)/5
+phase_shift_systematic_df = phase_shift_systematic_df.drop([0, 1, 2, 7, 8, 9, 10])
+#%%
+(10.5+9+7.5+6.7+8.4)/5
+#%%
+phase_shift_systematic_df['Shift [kHz]'] = phase_shift_systematic_df['Mean Phase Difference Change [mrad]'] * 10.5
+#%%
+fix, ax = plt.subplots()
+phase_shift_systematic_df.plot(y='Shift [kHz]', use_index=True, ax=ax)
+plt.show()
+#%%
+phase_shift_systematic_df
+#%%
+phase_shift_systematic_df.drop([0, 1, 2, 7, 8, 9, 10])
+#%%
 # Dropping data when the Box was under atmospheric pressure.
 av_phase_shift_systematic_df = phase_shift_systematic_df.drop([0, 1, 2, 7, 8, 9, 10]).aggregate(lambda x: np.mean(x))
-av_phase_shift_systematic_df
-#%%
-# Dropping data when the Box was under atmospheric pressure.
-av_phase_shift_systematic_df = phase_shift_systematic_df.aggregate(lambda x: np.mean(x))
-av_phase_shift_systematic_df
-#%%
+
 shift = (10.5+9+7.5+6.7+8.4)*av_phase_shift_systematic_df['Mean Phase Difference Change [mrad]']/5
-
-shift
 #%%
-np.sqrt(2.9**2+shift**2)
+shift = 10.5*av_phase_shift_systematic_df['Mean Phase Difference Change [mrad]']
+shift=2.5
+final_uncertainty = np.sqrt(2.9**2+shift**2)
+print('Phase systematic shift [kHz]: ' + str(shift))
+print('Final uncertainty [kHz]: ' + str(final_uncertainty))
 #%%
-
+av_phase_shift_systematic_df
 #%%
 exp_folder_name = '180914-135544 - FOSOF Common-mode phase drift systematic test - 0 config, 18 V per cm 910 MHz. No atoms. Under vacuum'
 

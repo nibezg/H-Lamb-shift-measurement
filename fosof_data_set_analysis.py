@@ -294,8 +294,9 @@ class DataSetFOSOF():
             pre_quench_df = add_level_data_frame(pre_quench_df, 'Quenching Cavity', ['910', '1088', '1147'])
             #pre_quench_df.columns.names = ['Quenching Cavity', 'Data Field']
 
-            # No need to have the state of pre-910 quenching cavity. If the state is changing, then it will be part of the index.
-            pre_quench_df.drop(columns=[('910','State')], inplace=True)
+            if self.exp_params_dict['Experiment Type'] != 'Pre-910 Switching':
+                # No need to have the state of pre-910 quenching cavity, since the state is the same, if we do not have 'pre-910 Switching' experiment
+                pre_quench_df.drop(columns=[('910','State')], inplace=True)
 
             # Combine pre-quench and post-quench data frames together
             quenching_cavities_df = pd.concat([pre_quench_df, post_quench_df], keys=['Pre-Quench','Post-Quench'], names=['Cavity Stack Type'], axis='columns')
@@ -738,7 +739,13 @@ class DataSetFOSOF():
             # Normalize to DC values
             phase_rel_to_dc_df.loc[slice(None), (slice(None), slice(None), 'Fourier Amplitude [V]')] = phase_rel_to_dc_df.loc[slice(None), (slice(None), slice(None), 'Fourier Amplitude [V]')].transform(lambda x: x/phase_diff_shifted_data_df.loc[slice(None), ('RF Combiner I Reference', 'Other', 'DC [V]')].values)
 
+
+            start = time.time()
             phasor_rel_to_dc_av_df = phase_rel_to_dc_df.loc[slice(None), (slice(None), slice(None), ['Fourier Phase [Rad]','Fourier Amplitude [V]'])].groupby(level=['Source', 'Data Type'], axis='columns').apply(phasor_av)
+            end = time.time()
+            print(end-start)
+
+            start = time.time()
 
             phasor_rel_to_dc_av_df.rename(columns={'Number Of Averaged Phasors': 'Number Of Averaged Data Points', 'Amplitude': 'Amplitude Relative To DC', 'Amplitude STD': 'Amplitude Relative To DC STD'}, inplace=True)
 
@@ -870,6 +877,10 @@ class DataSetFOSOF():
                             phase_av_set_next_df[reference_type, harmonic_value, averaging_type, column_mean_sigma_to_use_list[column_sigma_index]] = phase_av_set_next_df[reference_type, harmonic_value, averaging_type, column_sigma_to_use_list[column_sigma_index]] / np.sqrt(phase_av_set_next_df[reference_type, harmonic_value, averaging_type, n_averages_col_name])
 
             phase_av_set_next_df = phase_av_set_next_df.sort_index(axis='columns')
+
+            end = time.time()
+            print(end-start)
+
             self.phase_av_set_averaged_df = phase_av_set_next_df
         return self.phase_av_set_averaged_df
 
@@ -1013,43 +1024,131 @@ class DataSetFOSOF():
             rms_final_averaged_phasor_data_column_list.append('Waveguide Carrier Frequency [MHz]')
 
             phase_A_minus_B_df.columns = phase_A_minus_B_df.columns.remove_unused_levels()
-            phase_A_minus_B_df_group = phase_A_minus_B_df.groupby(rms_av_over_repeat_grouping_list)
 
-            reference_type_list = ['RF Combiner I Reference', 'RF Combiner R Reference']
-            averaging_type_list = ['Phase Averaging', 'Phasor Averaging', 'Phasor Averaging Relative To DC']
+            # Shift the phases in a proper quadrant
+            phase_A_minus_B_df.loc[slice(None), (slice(None), slice(None), slice(None), 'Phase [Rad]')] = phase_A_minus_B_df.loc[slice(None), (slice(None), slice(None), slice(None), 'Phase [Rad]')].groupby(rms_av_over_repeat_grouping_list).transform(lambda x: phases_shift(x)[0])
 
-            data_column = 'Phase [Rad]'
+            # Average phases for each type of averaging over the required groups of indeces
+            def find_av_phase(x, col_list):
+                ''' Aggregating function that is used for 'group_agg_mult_col_dict' function.
 
-            columns_dict = {
-                'Phase RMS Repeat STD': 'Phase RMS Repeat STD [Rad]',
-                'Phase RMS Averaging Set STD': 'Phase RMS Averaging Set STD [Rad]',
-                'Phase STD': 'Phase STD [Rad]'}
+                The function must have the following line it it:
+                data_dict = get_column_data_dict(x, col_list)
 
-            # Average the phases over all repeats for every Waveguide Carrier Frequency.
-            fosof_phases_df = phase_A_minus_B_df_group.apply(lambda df: self.average_data_field(df, reference_type_list, self.harmonic_name_list, averaging_type_list, data_column, columns_dict, True))
+                This basically creates a dictionary of values that are used as the input to the function.
 
-            fosof_phases_df = fosof_phases_df.reset_index().set_index(rms_final_averaged_phasor_data_column_list).sort_index(axis='index')
+                Inputs:
+                :x: data columns (from pandas)
+                :col_list: list of columns used for combining the data into a single column.
+                '''
+                data_dict = get_column_data_dict(x, col_list)
 
-            self.fosof_phases_df = fosof_phases_df
+                std_col = list(set(data_dict.keys()) - {'Phase [Rad]'})[0]
+
+                return dict(straight_line_fit_params(data_arr=data_dict['Phase [Rad]'], sigma_arr=data_dict[std_col]))
+
+            def phase_av_std_type(df, std_type_col):
+                col_list = ['Phase [Rad]', std_type_col]
+                df.columns = df.columns.droplevel(['Source', 'Data Type', 'Averaging Type'])
+                return group_agg_mult_col_dict(df[col_list], col_list, index_list=rms_av_over_repeat_grouping_list, func=find_av_phase)
+
+            # Level name for different types of averaging in final dataframe of averaged phases over repeats
+            std_type_level_name = 'STD Type'
+
+            # Phase data used for phase averaging
+            phase_data_grouped_df = phase_A_minus_B_df.groupby(axis='columns', level=['Source', 'Data Type', 'Averaging Type'])
+
+            # Phase averaging with using uncertainties from simple averaging of averaging sets
+            std_type_col = 'Phase STD [Rad]'
+            std_type_level = 'Phase STD'
+
+            phase_std_df = phase_data_grouped_df.apply(lambda df: phase_av_std_type(df, std_type_col))
+
+            phase_std_df = pd.concat([phase_std_df], names=[std_type_level_name], keys=[std_type_level], axis='columns').reorder_levels(axis='columns', order=['Source', 'Data Type', 'Averaging Type', 'STD Type', None])
+
+            # Phase averaging with using uncertainties from RMS uncertainty for each averaging set
+            std_type_col = 'Phase RMS Averaging Set STD [Rad]'
+            std_type_level = 'Phase RMS Averaging Set STD'
+            phase_av_set_std_df = phase_data_grouped_df.apply(lambda df: phase_av_std_type(df, std_type_col))
+
+            phase_av_set_std_df = pd.concat([phase_av_set_std_df], names=[std_type_level_name], keys=[std_type_level], axis='columns').reorder_levels(axis='columns', order=['Source', 'Data Type', 'Averaging Type', 'STD Type', None])
+
+            # Phase averaging with using uncertainties from RMS uncertainty for each repeat
+            std_type_col = 'Phase RMS Repeat STD [Rad]'
+            std_type_level = 'Phase RMS Repeat STD'
+            phase_repeat_std_df = phase_data_grouped_df.apply(lambda df: phase_av_std_type(df, std_type_col))
+
+            phase_repeat_std_df = pd.concat([phase_repeat_std_df], names=[std_type_level_name], keys=[std_type_level], axis='columns').reorder_levels(axis='columns', order=['Source', 'Data Type', 'Averaging Type', 'STD Type', None])
+
+            fosof_phases_df = phase_std_df.join([phase_av_set_std_df, phase_repeat_std_df]).reset_index().set_index(rms_final_averaged_phasor_data_column_list).sort_index().sort_index(axis='columns')
+
+            fosof_phases_df.columns.names = ['Phase Reference Type', 'Fourier Harmonic', 'Averaging Type', 'STD Type', 'Data Field']
 
             # We now want to average set of amplitude relative to dc values obtained for every averaging set (both 'A' and 'B' configurations) for all repeats for given RF frequency.
             rms_no_config_grouping_list = remove_sublist(ini_list=self.phase_av_set_averaged_df.index.names, remove_list=['Waveguide Carrier Frequency [MHz]', 'Configuration'])
 
             rms_no_config_grouping_list.insert(0, 'Waveguide Carrier Frequency [MHz]')
 
-            ampl_av_set_df = self.phase_av_set_averaged_df.reset_index().set_index(rms_no_config_grouping_list).sort_index(axis='index').loc[slice(None), (slice(None), slice(None), 'Phasor Averaging Relative To DC')]
+            ampl_av_set_df = data_set.phase_av_set_averaged_df.reset_index().set_index(rms_no_config_grouping_list).sort_index(axis='index').loc[slice(None), (slice(None), slice(None), 'Phasor Averaging Relative To DC')]
             ampl_av_set_df.columns = ampl_av_set_df.columns.remove_unused_levels()
-            ampl_av_set_df_group = ampl_av_set_df.groupby(rms_av_over_repeat_grouping_list)
 
-            averaging_type_list = ['Phasor Averaging Relative To DC']
-            data_column = 'Amplitude Relative To DC'
-            columns_dict = {
-                'Amplitude Relative To DC RMS Repeat STD': 'Amplitude Relative To DC RMS Repeat STDOM',
-                'Amplitude Relative To DC RMS Averaging Set STD': 'Amplitude Relative To DC RMS Averaging Set STDOM',
-                'Amplitude Relative To DC STD': 'Amplitude Relative To DC STDOM'}
+            # Average amplitude-to-dc ratios for each type of averaging over the required groups of indeces
+            def find_av_ampl(x, col_list):
+                ''' Aggregating function that is used for 'group_agg_mult_col_dict' function.
 
-            fosof_ampl_df = ampl_av_set_df_group.apply(self.average_data_field, reference_type_list, self.harmonic_name_list, averaging_type_list, data_column, columns_dict).reset_index().set_index(rms_final_averaged_phasor_data_column_list).sort_index(axis='index')
+                The function must have the following line it it:
+                data_dict = get_column_data_dict(x, col_list)
 
+                This basically creates a dictionary of values that are used as the input to the function.
+
+                Inputs:
+                :x: data columns (from pandas)
+                :col_list: list of columns used for combining the data into a single column.
+                '''
+                data_dict = get_column_data_dict(x, col_list)
+
+                std_col = list(set(data_dict.keys()) - {'Amplitude Relative To DC'})[0]
+
+                return dict(straight_line_fit_params(data_arr=data_dict['Amplitude Relative To DC'], sigma_arr=data_dict[std_col]))
+
+            def ampl_av_std_type(df, std_type_col):
+                col_list = ['Amplitude Relative To DC', std_type_col]
+                df.columns = df.columns.droplevel(['Source', 'Data Type', 'Averaging Type'])
+                return group_agg_mult_col_dict(df[col_list], col_list, index_list=rms_av_over_repeat_grouping_list, func=find_av_ampl)
+
+            # Level name for different types of averaging in final dataframe of averaged amplitude-to-dc ratios over repeats
+            std_type_level_name = 'STD Type'
+
+            # Amplitude-to-dc ratio data used for phase averaging
+            ampl_data_grouped_df = ampl_av_set_df.groupby(axis='columns', level=['Source', 'Data Type', 'Averaging Type'])
+
+            # Amplitude-to-dc ratio averaging with using uncertainties from simple averaging of averaging sets
+            std_type_col = 'Amplitude Relative To DC STDOM'
+            std_type_level = 'Amplitude Relative To DC STD'
+
+            ampl_std_df = ampl_data_grouped_df.apply(lambda df: ampl_av_std_type(df, std_type_col))
+
+            ampl_std_df = pd.concat([ampl_std_df], names=[std_type_level_name], keys=[std_type_level], axis='columns').reorder_levels(axis='columns', order=['Source', 'Data Type', 'Averaging Type', 'STD Type', None])
+
+            # Amplitude-to-dc ratio averaging with using uncertainties from RMS uncertainty for each averaging set
+            std_type_col = 'Amplitude Relative To DC RMS Averaging Set STDOM'
+            std_type_level = 'Amplitude Relative To DC RMS Averaging Set STD'
+            ampl_av_set_std_df = ampl_data_grouped_df.apply(lambda df: ampl_av_std_type(df, std_type_col))
+
+            ampl_av_set_std_df = pd.concat([ampl_av_set_std_df], names=[std_type_level_name], keys=[std_type_level], axis='columns').reorder_levels(axis='columns', order=['Source', 'Data Type', 'Averaging Type', 'STD Type', None])
+
+            # Amplitude-to-dc ratio averaging with using uncertainties from RMS uncertainty for each repeat
+            std_type_col = 'Amplitude Relative To DC RMS Repeat STDOM'
+            std_type_level = 'Amplitude Relative To DC RMS Repeat STD'
+            ampl_repeat_std_df = ampl_data_grouped_df.apply(lambda df: ampl_av_std_type(df, std_type_col))
+
+            ampl_repeat_std_df = pd.concat([ampl_repeat_std_df], names=[std_type_level_name], keys=[std_type_level], axis='columns').reorder_levels(axis='columns', order=['Source', 'Data Type', 'Averaging Type', 'STD Type', None])
+
+            fosof_ampl_df = ampl_std_df.join([ampl_av_set_std_df, ampl_repeat_std_df]).reset_index().set_index(rms_final_averaged_phasor_data_column_list).sort_index().sort_index(axis='columns')
+
+            fosof_ampl_df.columns.names = ['Phase Reference Type', 'Fourier Harmonic', 'Averaging Type', 'STD Type', 'Data Field']
+
+            self.fosof_phases_df = fosof_phases_df
             self.fosof_ampl_df = fosof_ampl_df
 
         return self.fosof_ampl_df, self.fosof_phases_df
@@ -1415,37 +1514,69 @@ class DataSetFOSOF():
         else:
             print('Folder with saved analysis data is not present')
 #%%
-data_set = DataSetFOSOF(exp_folder_name='180627-214753 - FOSOF Acquisition - 0 config, 24 V per cm PD 120 V, 49.86 kV, 908-912 MHz. B_x scan', load_data_Q=False)
+#data_set = DataSetFOSOF(exp_folder_name='180626-233004 - FOSOF Acquisition 910 onoff (50 pct)  - pi config, 24 V per cm PD 120V, 908-912 MHz', load_data_Q=False)
+data_set = DataSetFOSOF(exp_folder_name='180702-020825 - FOSOF Acquisition - 0 config, 8 V per cm PD 120 V, 49.86 kV, 908-912 MHz. B_x scan', load_data_Q=False)
+
+
 #data_set.save_analysis_data()
 #%%
 fc_df = data_set.get_fc_data()
+#%%
 quenching_df = data_set.get_quenching_cav_data()
+#%%
 rf_pow_df = data_set.get_rf_sys_pwr_det_data()
 fig, ax = plt.subplots()
 ax = data_set.get_krytar_109B_calib_plot(ax)
 plt.show()
 #%%
+start = time.time()
+
 digi_df = data_set.get_digitizers_data()
 comb_phase_diff_df = data_set.get_combiners_phase_diff_data()
 digi_delay_df = data_set.get_inter_digi_delay_data()
 phase_diff_df = data_set.get_phase_diff_data()
-#%%
-start = time.time()
 phase_av_set_averaged_df = data_set.average_av_sets()
-end = time.time()
-print(end-start)
-#%%
-#53 sec
-#%%
-start = time.time()
 phase_A_minus_B_df, phase_freq_response_df = data_set.cancel_out_freq_response()
-end = time.time()
-print(end-start)
-#%%
-start = time.time()
 fosof_ampl_df, fosof_phase_df = data_set.average_FOSOF_over_repeats()
+
 end = time.time()
 print(end-start)
 #%%
-fosof_ampl_df
+data_set.general_index.names
 #%%
+# Grouping Quenching cavities data together
+level_value = 'Post-Quench'
+
+# Selected dataframe
+post_quench_df = data_set.exp_data_frame[data_set.exp_data_frame.columns.values[match_string_start(data_set.exp_data_frame.columns.values, level_value)]]
+
+post_quench_df = post_quench_df.rename(columns=remove_matched_string_from_start(post_quench_df.columns.values, level_value))
+
+post_quench_df = add_level_data_frame(post_quench_df, 'Quenching Cavity', ['910', '1088', '1147'])
+#post_quench_df.columns.set_names('Data Field', level=1, inplace=True)
+#%%
+level_value = 'Pre-Quench'
+# Selected dataframe
+pre_quench_df = data_set.exp_data_frame[data_set.exp_data_frame.columns.values[match_string_start(data_set.exp_data_frame.columns.values, level_value)]]
+
+pre_quench_df = pre_quench_df.rename(columns=remove_matched_string_from_start(pre_quench_df.columns.values, level_value))
+
+pre_quench_df = add_level_data_frame(pre_quench_df, 'Quenching Cavity', ['910', '1088', '1147'])
+#pre_quench_df.columns.names = ['Quenching Cavity', 'Data Field']
+#%%
+pre_quench_df
+#%%
+# No need to have the state of pre-910 quenching cavity. If the state is changing, then it will be part of the index.
+pre_quench_df.drop(columns=[('910','State')], inplace=True)
+#%%
+# Combine pre-quench and post-quench data frames together
+quenching_cavities_df = pd.concat([pre_quench_df, post_quench_df], keys=['Pre-Quench','Post-Quench'], names=['Cavity Stack Type'], axis='columns')
+#%%
+data_set.exp_data_frame.columns
+#%%
+pre_quench_df
+#%%
+
+
+#%%
+data_set.data_set_type_s

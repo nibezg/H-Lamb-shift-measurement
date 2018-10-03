@@ -10,7 +10,7 @@ sys.path.insert(0,"C:/Users/Helium1/Google Drive/Research/Lamb shift measurement
 # For home
 #sys.path.insert(0,"E:/Google Drive/Code/Python/Testing/Blah 3.7")
 from exp_data_analysis import *
-
+from KRYTAR_109_B_Calib_analysis import *
 import re
 import time
 import math
@@ -337,14 +337,12 @@ class DataSetFOSOF():
             print(warning_mssg)
 
 
-        max_det_v = rf_system_power_df.max().max()
-        min_det_v = rf_system_power_df.min().min()
+        # Get the RF power calibration
+        self.wvg_pwr_det_calib = KRYTAR109BCalibration()
+        self.wvg_pwr_det_calib.get_calib_curve()
 
-        # Obtain cubic spline for the power detector calibration data
-        det_calib_cspline_func, [self.x_spline_data, self.y_spline_data], self.pwr_det_calib_to_use_df = get_krytar_109B_calib(min_det_v, max_det_v, rf_frequency_MHz = 910)
-
-        # Convert Detector Voltages to RF power in dBm
-        rf_system_power_df = rf_system_power_df.join(rf_system_power_df.transform(det_calib_cspline_func).rename(columns={'RF Power Detector Reading [V]':'Detected RF Power [dBm]'}, level='Data Field')).sort_index(axis='columns')
+        # Convert Detector Voltages to RF power in dBm. We use only the first element of the conversion function output. The second element is the uncertainty in the RF power.
+        rf_system_power_df = rf_system_power_df.join(rf_system_power_df.transform(lambda x: self.wvg_pwr_det_calib.get_RF_power_dBm_from_voltage(x)[:,0]).rename(columns={'RF Power Detector Reading [V]':'Detected RF Power [dBm]'}, level='Data Field')).sort_index(axis='columns')
 
         # Convert dBm to mW
         rf_system_power_df = rf_system_power_df.join(rf_system_power_df.loc[slice(None), (slice(None), ['Detected RF Power [dBm]'])].transform(lambda x: 10**(x/10)).rename(columns={'Detected RF Power [dBm]':'Detected RF Power [mW]'}, level='Data Field')).sort_index(axis='columns')
@@ -373,19 +371,6 @@ class DataSetFOSOF():
         self.rf_system_power_df = rf_system_power_df
 
         return self.rf_system_power_df
-
-    def get_krytar_109B_calib_plot(self, ax):
-
-        ax.plot(self.x_spline_data, self.y_spline_data, color='C3', label='Cubic spline')
-
-        self.pwr_det_calib_to_use_df.plot(x='Power detector signal [V]', y=('RF power [dBm]'), kind='scatter', ax=ax, xerr='STD the mean of power detector signal [V]', color='C0', s=30, label='Calibration data')
-
-        #ax.set_xlim(min_det_v, max_det_v)
-        ax.set_title('KRYTAR 109B RF power detector calibration')
-        ax.grid()
-        ax.legend()
-
-        return ax
 
     def get_digitizers_data(self):
         ''' Main data containing the extracted data from the digitizers.
@@ -1500,18 +1485,15 @@ class DataSetFOSOF():
         else:
             print('Folder with saved analysis data is not present')
 #%%
-# data_set = DataSetFOSOF(exp_folder_name='180626-233004 - FOSOF Acquisition 910 onoff (50 pct)  - pi config, 24 V per cm PD 120V, 908-912 MHz', load_data_Q=False)
-# data_set = DataSetFOSOF(exp_folder_name='180702-020825 - FOSOF Acquisition - 0 config, 8 V per cm PD 120 V, 49.86 kV, 908-912 MHz. B_x scan', load_data_Q=False)
-# data_set = DataSetFOSOF(exp_folder_name='180831-155219 - FOSOF Common-mode phase drift systematic test - 0 config, 18 V per cm 910 MHz. No atoms', load_data_Q=True)
-#
-# #data_set.save_analysis_data()
-# #%%
+# #data_set = DataSetFOSOF(exp_folder_name='180626-233004 - FOSOF Acquisition 910 onoff (50 pct)  - pi config, 24 V per cm PD 120V, 908-912 MHz', load_data_Q=False)
+# #data_set = DataSetFOSOF(exp_folder_name='180702-020825 - FOSOF Acquisition - 0 config, 8 V per cm PD 120 V, 49.86 kV, 908-912 MHz. B_x scan', load_data_Q=False)
+# data_set = DataSetFOSOF(exp_folder_name='180625-150533 - FOSOF Acquisition - 0 config, 18 V per cm PD OFF, 49.86 kV, 908-912 MHz', load_data_Q=False)
+# #
+# # data_set.save_analysis_data()
+# # #%%
 # fc_df = data_set.get_fc_data()
 # quenching_df = data_set.get_quenching_cav_data()
 # rf_pow_df = data_set.get_rf_sys_pwr_det_data()
-# fig, ax = plt.subplots()
-# ax = data_set.get_krytar_109B_calib_plot(ax)
-# plt.show()
 # #%%
 # start = time.time()
 #
@@ -1525,3 +1507,40 @@ class DataSetFOSOF():
 #
 # end = time.time()
 # print(end-start)
+# # #%%
+# # rf_pow_df
+# #%%
+# rf_pow_df
+# #%%
+# data_set.get_exp_parameters()['Experiment Start Time [s]']
+# eastern_tz = pytz.timezone('US/Eastern')
+#
+# 180625-150533
+#
+# exp_start_datetime = datetime.datetime.fromtimestamp(timestamp_start, tz=eastern_tz)
+#
+# #%%
+# exp_start_datetime
+# #%%
+# exp_end_datetime
+# #%%
+# exp_end_datetime = datetime.datetime.fromtimestamp(timestamp, tz=eastern_tz)
+# #%%
+# start_t
+# #%%
+# exp_end_datetime - exp_start_datetime
+# #%%
+# ts = pd.Series(np.random.randn(1000), index=pd.date_range('1/1/2000', periods=1000))
+# ts
+# #%%
+# ts = ts.cumsum()
+# ts
+# #%%
+# #%%
+# df = pd.DataFrame(np.random.randn(1000, 4), index=ts.index, columns=list('ABCD'))
+# df = df.cumsum()
+# #%%
+# df
+# #%%
+# df.plot()
+# #%%

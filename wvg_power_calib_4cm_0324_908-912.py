@@ -17,7 +17,7 @@ from KRYTAR_109_B_Calib_analysis import *
 
 from hydrogen_sim_data import *
 
-from wvg_power_calib_raw_data_analysis import *
+from wvg_power_calib_raw_data_analysis_Old import *
 from wvg_power_calib_analysis import *
 
 import re
@@ -36,49 +36,29 @@ import matplotlib.pyplot as plt
 import textwrap
 
 #%%
-# Waveguide power calibration analysis. Calibration data has been acquired starting from 2018-05-12 15:09:46 to the calibration data set that started to get acquired on 2018-05-21 00:22:44
-# The calibration was used for the following FOSOF data sets:
+# Waveguide power calibration analysis. There are two calibration data sets acquired: one started to get acquired on 2018-03-24 at 21:31:44 and another on 2018-03-27 at 17:33:23.
+
+# The first calibration data set should not be used, because the Lyman-alpha detector DC value, when the RF generator was not ouputting any power, was > -10 Volts, which means that the transimpedance amplifier, used for converting the Lyman-alpha detector current to voltage, had too high of the gain setting, which resulted in it being saturated.
+
+# The calibration is used for the following FOSOF data sets:
 
 # Separation: 4 cm
+
 # Starting data set:
-# 2018-05-14 15:06:58
+# 2018-03-19 16:19:30
+
 # Final data set:
-# 2018-06-15 16:40:59
+# 2018-04-09 23:46:52
 
-# List of data sets with the waveguide calibration. These files are assumed to represent different calibration frequency ranges. Each data set gets analyzed separately, but after the analysis the results are combined into a single pd.DataFrame.
-
-# The calibration data is not acquired in one data set usually. We have separate data sets corresponding to different frequency ranges. Important condition for the data sets: there should be no overlapping RF frequencies. One can say that we can simply average the data from these overlapping frequencies together (taking weighted average). I tried that, but quite a lot of the data sets, that containt data from the same RF power generator setting from different experiments are quite off from each other: I have seen Reduced Chi-squared values (for a flat line fit) of 40. I suspect that the main reason for this is that the RF power that gets supplied to the system is not the same at different times for the same RF generator power setting.
-
+# List of data sets with the waveguide calibration.
 exp_folder_name_list = [
-'180512-150946 - Waveguide Calibration - 908-912 MHz 41 Frequencies, 4 cm', '180512-232655 - Waveguide Calibration - 912.1-916 MHz 40 Frequencies, 4 cm',
-'180513-124116 - Waveguide Calibration - 904-907.9 MHz 40 Frequencies, 4 cm',
-'180513-215656 - Waveguide Calibration - 916.1-920 MHz 40 Frequencies, 4 cm',
-'180514-052148 - Waveguide Calibration - 920.1-922 MHz 20 Frequencies, 4 cm',
-'180515-091949 - Waveguide Calibration - 922.1-926.2 MHz 42 Frequencies, 4 cm',
-'180515-170601 - Waveguide Calibration - 900.0-903.9 MHz 40 Frequencies, 4 cm',
-'180516-003056 - Waveguide Calibration - 896.0-899.9 MHz 40 Frequencies, 4 cm',
-'180516-075539 - Waveguide Calibration - 893.8-895.9 MHz 22 Frequencies, 4 cm'
-]
-
-exp_folder_name_list = [
-'180512-150946 - Waveguide Calibration - 908-912 MHz 41 Frequencies, 4 cm', '180512-232655 - Waveguide Calibration - 912.1-916 MHz 40 Frequencies, 4 cm',
-'180513-124116 - Waveguide Calibration - 904-907.9 MHz 40 Frequencies, 4 cm',
-'180513-215656 - Waveguide Calibration - 916.1-920 MHz 40 Frequencies, 4 cm',
-#'180514-052148 - Waveguide Calibration - 920.1-922 MHz 20 Frequencies, 4 cm',
-#'180515-091949 - Waveguide Calibration - 922.1-926.2 MHz 42 Frequencies, 4 cm',
-'180515-170601 - Waveguide Calibration - 900.0-903.9 MHz 40 Frequencies, 4 cm',
-#'180516-003056 - Waveguide Calibration - 896.0-899.9 MHz 40 Frequencies, 4 cm',
-#'180516-075539 - Waveguide Calibration - 893.8-895.9 MHz 22 Frequencies, 4 cm',
-'180519-115023 - Waveguide Calibration - 0 config, PD ON 120 V, 893.8-898 MHz',
-'180519-234232 - Waveguide Calibration - 0 config, PD ON 120 V, 922.0-926 MHz',
-'180520-105642 - Waveguide Calibration - 0 config, PD ON 120 V, 918.0-922 MHz',
-'180521-002244 - Waveguide Calibration - 0 config, PD ON 120 V, 898-902 MHz'
+'180327-173323 - Waveguide Calibration - 41 Frequencies, Medium Range'
 ]
 
 data_set_df = None
 for exp_folder_name in exp_folder_name_list:
 
-    data_set = DataSetQuenchCurveWaveguide(exp_folder_name, load_Q=True)
+    data_set = DataSetQuenchCurveWaveguideOld(exp_folder_name, load_Q=True)
     data_set.average_surv_frac_data()
     if data_set.loaded_Q == False:
         data_set.save_instance()
@@ -93,70 +73,20 @@ for exp_folder_name in exp_folder_name_list:
 data_set_df.index.names = ['Experiment Folder Name']
 #%%
 # Take a look at the DC value over time for one of the particular data sets. This is basically to show that one cannot assume that the standard deviation in the mean of the digitizer trace is a good indicator in the stability of DC over the course of power scan for a given frequency.
-data_set = data_set_df.iloc[4]['Data Set']
+data_set = data_set_df.iloc[0]['Data Set']
 
 fig, ax = plt.subplots()
 fig.set_size_inches(15, 10)
 
 ax = data_set.get_beam_dc_rf_off().reset_index().plot(kind='scatter', x='Elapsed Time [s]', y='DC [V]', yerr = 'DC STDOM [V]', ax=ax, color='black')
 
-x_arr, y_arr = data_set.get_beam_dc_rf_off_plotting_data(ax)
-
-ax.plot(x_arr, y_arr, color='blue')
-
 plt.show()
-#%%
-# Drop overlapping frequencies from the data sets. This is done manually.
-
-def remove_overlapping_freq(exp_name_keep, exp_name_remove):
-
-    data_set_keep = data_set_df.loc[exp_name_keep, 'Data Set']
-    data_set_remove = data_set_df.loc[exp_name_remove, 'Data Set']
-
-
-    exp_keep_data_df = data_set_keep.get_exp_data()
-    exp_remove_data_df = data_set_remove.get_exp_data()
-
-    intersecting_freq_list = list(exp_keep_data_df.index.get_level_values(freq_column_name).intersection(exp_remove_data_df.index.get_level_values(freq_column_name)).drop_duplicates())
-
-    if len(intersecting_freq_list) > 0:
-
-        # Here we set to drop inplace to True, to make sure that the id of the dataframe does not change, so that it is still linked to the object's data
-        exp_remove_data_df.drop(index=intersecting_freq_list, level=freq_column_name, inplace=True)
-
-        data_set_remove.flush_data()
-
-        data_set_remove.average_surv_frac_data()
-    else:
-        print('No overlapping index found')
-
-
-
-#%%
-exp_name_keep = '180521-002244 - Waveguide Calibration - 0 config, PD ON 120 V, 898-902 MHz'
-exp_name_remove = '180519-115023 - Waveguide Calibration - 0 config, PD ON 120 V, 893.8-898 MHz'
-
-remove_overlapping_freq(exp_name_keep, exp_name_remove)
-
-exp_name_keep = '180520-105642 - Waveguide Calibration - 0 config, PD ON 120 V, 918.0-922 MHz'
-exp_name_remove = '180519-234232 - Waveguide Calibration - 0 config, PD ON 120 V, 922.0-926 MHz'
-
-remove_overlapping_freq(exp_name_keep, exp_name_remove)
-
-exp_name_keep = '180521-002244 - Waveguide Calibration - 0 config, PD ON 120 V, 898-902 MHz'
-exp_name_remove = '180515-170601 - Waveguide Calibration - 900.0-903.9 MHz 40 Frequencies, 4 cm'
-
-remove_overlapping_freq(exp_name_keep, exp_name_remove)
-
-exp_name_keep = '180520-105642 - Waveguide Calibration - 0 config, PD ON 120 V, 918.0-922 MHz'
-exp_name_remove = '180513-215656 - Waveguide Calibration - 916.1-920 MHz 40 Frequencies, 4 cm'
-
-remove_overlapping_freq(exp_name_keep, exp_name_remove)
 #%%
 # Combine the averaged surviving fractions from all of the data sets together.
 data_set_grouped_df = data_set_df.groupby('Experiment Folder Name')
 
 surv_frac_av_df = data_set_grouped_df.apply(lambda df: df['Data Set'].iloc[0].average_surv_frac_data()).reset_index(level='Experiment Folder Name', drop=True).sort_index()
+
 #%%
 # Beam speed to use for the simulation [cm/ns]. All of the waveguide calibration data was acquired at 49.87 kV of accelerating voltage. This was later measured to correspond to 0.3223 cm/ns.
 v_speed = 0.3223
@@ -197,7 +127,7 @@ def check_fract_offset(fract_DC_offset):
     else:
         return fract_DC_offset
 
-# Fractional offset to use.
+
 fract_DC_offset = 0.03
 
 
@@ -207,31 +137,33 @@ fract_DC_offset = check_fract_offset(fract_DC_offset)
 off_axis_dist = 1.8
 
 # Settings for the Waveguides power calibration.
+# I am not using the boundary conditions here, because the fits do not look that good. I guess the problem is in normalization of the data done in the raw data analysis. This causes the statement that, for example at zero power, the DC On/Off Ratio is 1 to be not true anymore.
 wvg_calib_param_dict =    {
-            'Date [date object]': datetime.date(year=2018, month=5, day=12),
+            'Date [date object]': datetime.date(year=2018, month=3, day=27),
             'Waveguide Separation [cm]': 4,
             'Accelerating Voltage [kV]': 49.87,
-            'RF Frequency Scan Range [MHz]': '894-926',
+            'RF Frequency Scan Range [MHz]': '908-912',
             'Atom Off-Axis Distance (Simulation) [mm]': 1.8,
             'Fractional DC Offset': fract_DC_offset,
             'Minimum RF E Field Amplitude [V/cm]': 5,
-            'Maximum RF E Field Amplitude [V/cm]': 27,
-            'Use Boundary Conditions': True
+            'Maximum RF E Field Amplitude [V/cm]': 30,
+            'Use Boundary Conditions': False
                     }
 #%%
 wvg_calib_analysis = WaveguideCalibrationAnalysis(load_Q=True, quench_sim_vs_freq_df=quench_sim_vs_freq_df, surv_frac_av_df=surv_frac_av_df, wvg_calib_param_dict=wvg_calib_param_dict)
-
+#%%
 quench_sim_data_sets_df = wvg_calib_analysis.analyze_simulation_quench_curves()
+#%%
 surv_frac_converted_df = wvg_calib_analysis.extract_E_fields()
-
+#%%
 # RF E Field amplitude vs RF power parameters fit curves.
 extracted_E_field_vs_RF_power_fits_set_df = wvg_calib_analysis.get_converted_E_field_curve_fits()
 # DC On/Off Ratio vs RF power parameters fit curves
 surv_frac_vs_RF_power_fits_set_df = wvg_calib_analysis.get_quench_curve_fits()
 #%%
 # Plotting the extracted fit curves
-rf_freq = 894.0
-rf_channel = 'A'
+rf_freq = 910.4
+rf_channel = 'B'
 #%%
 fig, axes = plt.subplots(nrows=3, ncols=3)
 fig.set_size_inches(22,20)
@@ -252,12 +184,12 @@ surv_frac_vs_RF_power_fits_set_df.loc[rf_channel, rf_freq]
 rf_e_field_calib_df = wvg_calib_analysis.perform_power_calib()
 calib_av_df = wvg_calib_analysis.get_av_calib_data()
 #%%
-rf_e_field_ampl = 5.0
-rf_channel = 'B'
+rf_e_field_ampl = 28.0
+rf_channel = 'A'
 
 fig, axes = plt.subplots(nrows=1, ncols=4)
 
-fig.set_size_inches(24, 8)
+fig.set_size_inches(30, 8)
 
 axes = wvg_calib_analysis.get_calibration_plot(rf_channel, rf_e_field_ampl, axes)
 
@@ -272,16 +204,16 @@ fract_DC_offset_half = check_fract_offset(fract_DC_offset_half)
 
 # Settings for the Waveguides power calibration.
 wvg_calib_param_dict =    {
-            'Date [date object]': datetime.date(year=2018, month=5, day=12),
+            'Date [date object]': datetime.date(year=2018, month=3, day=27),
             'Waveguide Separation [cm]': 4,
             'Accelerating Voltage [kV]': 49.87,
-            'RF Frequency Scan Range [MHz]': '894-926',
+            'RF Frequency Scan Range [MHz]': '908-912',
             'Atom Off-Axis Distance (Simulation) [mm]': 1.8,
             'Fractional DC Offset': fract_DC_offset_half,
             'Minimum RF E Field Amplitude [V/cm]': 5,
-            'Maximum RF E Field Amplitude [V/cm]': 27,
-            'Use Boundary Conditions': True
-                        }
+            'Maximum RF E Field Amplitude [V/cm]': 30,
+            'Use Boundary Conditions': False
+                    }
 # We now calculate the calibration for the case when the fractional offset is 50% smaller.
 wvg_calib_analysis_half = WaveguideCalibrationAnalysis(load_Q=True, quench_sim_vs_freq_df=quench_sim_vs_freq_df, surv_frac_av_df=surv_frac_av_df, wvg_calib_param_dict=wvg_calib_param_dict)
 
@@ -294,7 +226,7 @@ extracted_E_field_vs_RF_power_fits_set_df = wvg_calib_analysis_half.get_converte
 surv_frac_vs_RF_power_fits_set_df = wvg_calib_analysis_half.get_quench_curve_fits()
 #%%
 # Plotting the extracted fit curves
-rf_freq = 894.0
+rf_freq = 910.4
 rf_channel = 'A'
 #%%
 fig, axes = plt.subplots(nrows=3, ncols=3)
@@ -335,15 +267,15 @@ fract_DC_offset_plus_half = check_fract_offset(fract_DC_offset_plus_half)
 
 # Settings for the Waveguides power calibration.
 wvg_calib_param_dict =    {
-            'Date [date object]': datetime.date(year=2018, month=5, day=12),
+            'Date [date object]': datetime.date(year=2018, month=3, day=27),
             'Waveguide Separation [cm]': 4,
             'Accelerating Voltage [kV]': 49.87,
-            'RF Frequency Scan Range [MHz]': '894-926',
+            'RF Frequency Scan Range [MHz]': '908-912',
             'Atom Off-Axis Distance (Simulation) [mm]': 1.8,
             'Fractional DC Offset': fract_DC_offset_plus_half,
             'Minimum RF E Field Amplitude [V/cm]': 5,
-            'Maximum RF E Field Amplitude [V/cm]': 27,
-            'Use Boundary Conditions': True
+            'Maximum RF E Field Amplitude [V/cm]': 30,
+            'Use Boundary Conditions': False
                         }
 
 wvg_calib_analysis_plus_half = WaveguideCalibrationAnalysis(load_Q=True, quench_sim_vs_freq_df=quench_sim_vs_freq_df, surv_frac_av_df=surv_frac_av_df, wvg_calib_param_dict=wvg_calib_param_dict)
@@ -439,4 +371,3 @@ av_RF_power_calib_error_df
 # Save the average RF power calibration error in the power calibration with the initial fractional DC offset.
 wvg_calib_analysis.set_av_rf_power_calib_error(av_RF_power_calib_error_df)
 wvg_calib_analysis.save_instance()
-#%%

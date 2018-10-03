@@ -6,8 +6,8 @@ import sys
 import os
 import string
 
-sys.path.insert(0,"C:/Users/Helium1/Google Drive/Code/Python/Testing/Blah") #
-#from exp_data_analysis import *
+# For lab
+sys.path.insert(0,"C:/Users/Helium1/Google Drive/Research/Lamb shift measurement/Code")
 
 import re
 import time
@@ -150,8 +150,15 @@ class KRYTAR109BCalibration(ZX4755LNCalibration):
         return self.spl_smoothing_inverse, self.spl_calib_std
 
     def get_RF_power_from_voltage(self, v_array):
+        ''' Get RF power in mW and its uncertainty for an array of voltage readings
+        '''
 
         return np.array([self.spl_smoothing_inverse(v_array)**2, self.spl_calib_std(v_array)]).T
+
+    def get_RF_power_dBm_from_voltage(self, v_array):
+        ''' Get RF power in dBm and its uncertainty for an array of voltage readings
+        '''
+        return 10*np.log10(self.get_RF_power_from_voltage(v_array))
 
     def get_spline_data_to_plot(self, n_points):
         ''' Convenience function that gives x and y-axes data for plotting the spline
@@ -174,9 +181,9 @@ class KRYTAR109BCalibration(ZX4755LNCalibration):
         return x_data, y_data, y_std_data
 #%%
 # data_set = KRYTAR109BCalibration()
-#
-# # s_factor_multiple of 100 seems to give good smooth agreement with the data.
-# spl_smoothing_inverse, spl_calib_std = data_set.get_calib_curve(s_factor_multiple=50)
+# 
+# # s_factor_multiple of 50 seems to give good smooth agreement with the data.
+# spl_smoothing_inverse, spl_calib_std = data_set.get_calib_curve()
 # x_data, y_data, y_std_data = data_set.get_spline_data_to_plot(100)
 # calib_data_df = data_set.get_calib_data()
 #
@@ -219,7 +226,9 @@ class KRYTAR109BCalibration(ZX4755LNCalibration):
 #
 # #axes[0, 0].set_xlim(-0.5, -0.4)
 # #axes[0, 0].set_ylim(1.75,2.25)
-# axes[1, 0].set_xlim(-0.08, -0.06)
-# axes[1, 0].set_ylim(0, 0.5)
+# #axes[1, 0].set_xlim(-0.08, -0.06)
+# #axes[1, 0].set_ylim(0, 0.5)
 #
 # plt.show()
+# #%%
+# data_set.get_RF_power_from_voltage([-0.1])

@@ -13,7 +13,7 @@ import scipy.interpolate
 
 import matplotlib.pyplot as plt
 
-sys.path.insert(0,"C:/Users/Helium1/Google Drive/Code/Python/Testing/Blah")
+sys.path.insert(0,"C:/Users/Helium1/Google Drive/Research/Lamb shift measurement/Code")
 
 #%%
 # Path to the folder that stores FOSOF simulation files
@@ -76,7 +76,7 @@ class WaveguideOldQuenchCurveSimulationSet():
     def get_list_of_simulations(self):
         # Pick the required DataFrame
 
-        return self.quench_sim_dict.keys()
+        return list(self.quench_sim_dict.keys())
 
     def get_simulation_data(self, sim_name):
         quench_sim_vs_freq_df = self.quench_sim_dict[sim_name].copy()
@@ -327,8 +327,6 @@ class OldWaveguideQuenchCurveSimulation():
 # #%%
 # sim_name_list = old_quench_sim_set.get_list_of_simulations()
 # sim_name_list
-#
-# #%%
 # quench_sim_vs_freq_df = old_quench_sim_set.get_simulation_data(sim_name_list[0])
 # quench_sim_vs_freq_df
 # #%%

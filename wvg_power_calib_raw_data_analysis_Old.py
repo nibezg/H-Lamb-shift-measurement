@@ -97,6 +97,20 @@ class DataSetQuenchCurveWaveguideOld(DataSetQuenchCurveWaveguide):
             # Convert data types of some columns
             self.exp_data_df = self.exp_data_df.astype({'Time': np.float64, 'Repeat': np.int16})
 
+            # Check for abs(DC) values larger than 10 V. These indicate either saturated amplifier or a high voltage that exceedes range setting of a digitizer. This might not even indicate that there is something wrong with the digitizer settings, for instance, or the gain setting on the amplifier, since it could be just a sudden spike in the detector current.
+
+            digi_dc_gen_on_large_df = self.exp_data_df[np.abs(self.exp_data_df['Digitizer DC (Generator On) [V]']) > 10]
+            digi_dc_gen_off_large_df = self.exp_data_df[np.abs(self.exp_data_df['Digitizer DC (Generator Off) [V]']) > 10]
+
+            if digi_dc_gen_on_large_df.shape[0] > 0:
+                print('Digitizer DC (Generator On) values have been found that are larger than 10 Volts. There are ' + str(digi_dc_gen_on_large_df.shape[0]) + ' rows. Dropping these rows.')
+
+            if digi_dc_gen_off_large_df.shape[0] > 0:
+                print('Digitizer DC (Generator Off) values have been found that are larger than 10 Volts. There are ' + str(digi_dc_gen_off_large_df.shape[0]) + ' rows. Dropping these rows.')
+
+            self.exp_data_df.drop(digi_dc_gen_on_large_df.index, inplace=True)
+            self.exp_data_df.drop(digi_dc_gen_off_large_df.index, inplace=True)
+
             # Add a column of elapsed time since the start of the acquisition
             self.exp_data_df['Elapsed Time [s]'] = self.exp_data_df['Time'] - self.exp_data_df['Time'].min()
 

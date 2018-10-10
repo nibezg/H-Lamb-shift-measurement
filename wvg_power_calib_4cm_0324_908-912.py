@@ -36,8 +36,9 @@ import matplotlib.pyplot as plt
 import textwrap
 
 #%%
-# Waveguide power calibration analysis. There are two calibration data sets acquired: one started to get acquired on 2018-03-24 at 21:31:44 and another on 2018-03-27 at 17:33:23.
+# Waveguide power calibration analysis for 4 cm waveguide separation. The accelerating voltage was at 49.87 kV.
 
+# There are two calibration data sets acquired: one started to get acquired on 2018-03-24 at 21:31:44 and another on 2018-03-27 at 17:33:23.
 # The first calibration data set should not be used, because the Lyman-alpha detector DC value, when the RF generator was not ouputting any power, was > -10 Volts, which means that the transimpedance amplifier, used for converting the Lyman-alpha detector current to voltage, had too high of the gain setting, which resulted in it being saturated.
 
 # The calibration is used for the following FOSOF data sets:
@@ -147,7 +148,8 @@ wvg_calib_param_dict =    {
             'Fractional DC Offset': fract_DC_offset,
             'Minimum RF E Field Amplitude [V/cm]': 5,
             'Maximum RF E Field Amplitude [V/cm]': 30,
-            'Use Boundary Conditions': False
+            'Use Boundary Conditions': False,
+            'Polynomial Fit Order': 3
                     }
 #%%
 wvg_calib_analysis = WaveguideCalibrationAnalysis(load_Q=True, quench_sim_vs_freq_df=quench_sim_vs_freq_df, surv_frac_av_df=surv_frac_av_df, wvg_calib_param_dict=wvg_calib_param_dict)
@@ -163,7 +165,7 @@ surv_frac_vs_RF_power_fits_set_df = wvg_calib_analysis.get_quench_curve_fits()
 #%%
 # Plotting the extracted fit curves
 rf_freq = 910.4
-rf_channel = 'B'
+rf_channel = 'A'
 #%%
 fig, axes = plt.subplots(nrows=3, ncols=3)
 fig.set_size_inches(22,20)
@@ -184,7 +186,7 @@ surv_frac_vs_RF_power_fits_set_df.loc[rf_channel, rf_freq]
 rf_e_field_calib_df = wvg_calib_analysis.perform_power_calib()
 calib_av_df = wvg_calib_analysis.get_av_calib_data()
 #%%
-rf_e_field_ampl = 28.0
+rf_e_field_ampl = 5.0
 rf_channel = 'A'
 
 fig, axes = plt.subplots(nrows=1, ncols=4)
@@ -212,7 +214,8 @@ wvg_calib_param_dict =    {
             'Fractional DC Offset': fract_DC_offset_half,
             'Minimum RF E Field Amplitude [V/cm]': 5,
             'Maximum RF E Field Amplitude [V/cm]': 30,
-            'Use Boundary Conditions': False
+            'Use Boundary Conditions': False,
+            'Polynomial Fit Order': 3
                     }
 # We now calculate the calibration for the case when the fractional offset is 50% smaller.
 wvg_calib_analysis_half = WaveguideCalibrationAnalysis(load_Q=True, quench_sim_vs_freq_df=quench_sim_vs_freq_df, surv_frac_av_df=surv_frac_av_df, wvg_calib_param_dict=wvg_calib_param_dict)
@@ -275,7 +278,8 @@ wvg_calib_param_dict =    {
             'Fractional DC Offset': fract_DC_offset_plus_half,
             'Minimum RF E Field Amplitude [V/cm]': 5,
             'Maximum RF E Field Amplitude [V/cm]': 30,
-            'Use Boundary Conditions': False
+            'Use Boundary Conditions': False,
+            'Polynomial Fit Order': 3
                         }
 
 wvg_calib_analysis_plus_half = WaveguideCalibrationAnalysis(load_Q=True, quench_sim_vs_freq_df=quench_sim_vs_freq_df, surv_frac_av_df=surv_frac_av_df, wvg_calib_param_dict=wvg_calib_param_dict)
@@ -289,7 +293,7 @@ extracted_E_field_vs_RF_power_fits_set_df = wvg_calib_analysis_plus_half.get_con
 surv_frac_vs_RF_power_fits_set_df = wvg_calib_analysis_plus_half.get_quench_curve_fits()
 #%%
 # Plotting the extracted fit curves
-rf_freq = 894.0
+rf_freq = 910.4
 rf_channel = 'A'
 #%%
 fig, axes = plt.subplots(nrows=3, ncols=3)
@@ -330,7 +334,7 @@ rf_channel = 'A'
 
 figure, axes = plt.subplots(nrows=1, ncols=3)
 
-figure.set_size_inches(16, 12)
+figure.set_size_inches(20, 8)
 
 wvg_calib_analysis.calib_av_df.loc[rf_channel, rf_e_field_ampl]['RF System Power Sensor Detected Power [mW]'].reset_index().plot(kind='scatter', x=freq_column_name, y='Mean Value', ax=axes[0], color='black', label=str(fract_DC_offset))
 

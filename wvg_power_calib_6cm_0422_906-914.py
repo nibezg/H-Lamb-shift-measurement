@@ -36,43 +36,86 @@ import matplotlib.pyplot as plt
 import textwrap
 
 #%%
-# Waveguide power calibration analysis. Calibration data has been acquired starting from 2018-05-12 15:09:46 to the calibration data set that started to get acquired on 2018-05-21 00:22:44
-# The calibration was used for the following FOSOF data sets:
+''' Waveguide power calibration analysis for 6 cm waveguide separation. The accelerating voltage was 49.87 KV.
 
-# Separation: 4 cm
+There are many calibration data sets acquired at this separation. The history of acquisition at 6 cm is shown below:
+Waveguide calibration files for 6 cm:
+
+	180411-200821 - Waveguide Calibration - 41 Frequencies, Medium Range (907.2 - 912.2 MHz)
+	180412-060139 - Waveguide Calibration - 41 Frequencies, Medium Range (905.8 - 907.8 MHz)
+
+	180412-201751 - Waveguide Calibration - 85 Frequencies, Large Range (905.8 - 914.2 MHz)
+
+	180413-232259 - Waveguide Calibration - 85 Frequencies, Large Range (905.8 - 914.2 MHz)
+
+	180417-160005 - Waveguide Calibration - Replacement Frequencies (910.0 MHz, A)
+	180417-161405 - Waveguide Calibration - Replacement Frequencies	(905.9 - 906.1 MHz, A)
+	180417-161958 - Waveguide Calibration - Replacement Frequencies (906.6 - 906.8 MHz, A)
+	180417-162553 - Waveguide Calibration - Replacement Frequencies (907.1 - 907.5 MHz, A)
+	180417-163954 - Waveguide Calibration - Replacement Frequencies (908.0 - 909.0 MHz, A)
+	180417-164829 - Waveguide Calibration - Replacement Frequencies (910.4 - 912.4 MHz, A)
+	180417-165706 - Waveguide Calibration - Replacement Frequencies (910.5 - 910.7 MHz, A)
+	180417-170259 - Waveguide Calibration - Replacement Frequencies (911.7 - 912.2 MHz, A)
+	180417-170852 - Waveguide Calibration - Replacement Frequencies (912.8 - 913.0 MHz, A)
+	180417-171446 - Waveguide Calibration - Replacement Frequencies (913.7 - 913.8 MHz, A)
+	180417-172040 - Waveguide Calibration - Replacement Frequencies (914.1 - 914.1 MHz, A)
+	180417-172351 - Waveguide Calibration - Replacement Frequencies (906.8 - 907.7 MHz, B)
+	180417-172944 - Waveguide Calibration - Replacement Frequencies (907.9 - 908.1 MHz, B)
+	180417-173538 - Waveguide Calibration - Replacement Frequencies (908.8 - 909.1 MHz, B)
+	180417-174131 - Waveguide Calibration - Replacement Frequencies (909.5 - 909.7 MHz, B)
+	180417-174725 - Waveguide Calibration - Replacement Frequencies (910.0 - 910.4 MHz, B)
+	180417-175318 - Waveguide Calibration - Replacement Frequencies (911.2 - 912.2 MHz, B)
+	180417-175911 - Waveguide Calibration - Replacement Frequencies (911.7 - 912.0 MHz, B)
+	180417-181030 - Waveguide Calibration - Replacement Frequencies (913.1 - 913.5 MHz, B)
+
+	180417-184530 - Waveguide Calibration - Lower Half, 43 Frequencies (905.8 - 910.0 MHz)
+	180417-224136 - Waveguide Calibration - Upper Half, 42 Frequencies (910.1 - 914.2 MHz)
+
+	180418-085644 - Waveguide Calibration - Replacement Frequencies (909.8 - 912.3 MHz, B)
+	180418-090252 - Waveguide Calibration - Replacement Frequencies (912.9 - 913.0 MHz, B)
+	180418-090854 - Waveguide Calibration - Replacement Frequencies (913.9 - 913.9 MHz, B)
+	180418-091206 - Waveguide Calibration - Replacement Frequencies (906.4 - 906.9 MHz, A)
+	180418-091804 - Waveguide Calibration - Replacement Frequencies (907.0 - 907.0 MHz, A)
+	180418-092117 - Waveguide Calibration - Replacement Frequencies (909.3 - 909.4 MHz, A)
+	180418-092713 - Waveguide Calibration - Replacement Frequencies (910.1 - 910.2 MHz, A)
+	180418-093309 - Waveguide Calibration - Replacement Frequencies (912.0 - 912.4 MHz, A)
+	180418-093906 - Waveguide Calibration - Replacement Frequencies (912.5 - 912.6 MHz, A)
+	180418-094502 - Waveguide Calibration - Replacement Frequencies (913.0 - 913.7 MHz, A)
+
+	180418-135415 - Waveguide Calibration - 10 Frequencies (910.0 - 911.0 MHz, A)
+	180418-155840 - Waveguide Calibration - 10 Frequencies (910.0 - 911.0 MHz, B)
+
+	-------------------
+	Starting to use frequency sweeping here
+	-------------------
+
+	180419-135416 - Waveguide Calibration - 85 Frequency, Large Range (Only two RF power settings are scanned. Do not use. For testing)
+
+	180419-135644 - Waveguide Calibration - 85 Frequency, Large Range (905.8 - 914.2 MHz)
+
+	180419-190628 - Waveguide Calibration - 85 Frequency, Large Range (905.8 - 914.2 MHz)
+
+	180420-175746 - Waveguide Calibration - 85 Frequency, Large Range (Only two RF power settings are scanned. Do not use. For testing)
+
+	180420-180610 - Waveguide Calibration - 85 Frequency, Large Range (905.8 - 914.2 MHz. Many repeats)
+
+	180422-194232 - Waveguide Calibration - 85 Frequency, Large Range (905.8 - 914.2 MHz)
+
+As I remember, we could not get stable enough data for quite some time. After that we developed new acquisition scheme, where we stopped switching RF generator power ON and OFF for every average. This sped up the acquisition and allowed us to acquire much more data in a given amount of time. At the end I will use the '180422-194232 - Waveguide Calibration - 85 Frequency, Large Range' data set as the calibration data.
+'''
+# The calibration is used for the following FOSOF data sets:
+
+# Separation: 6 cm
+
 # Starting data set:
-# 2018-05-14 15:06:58
+# 2018-04-11 12:53:03
+
 # Final data set:
-# 2018-06-15 16:40:59
+# 2018-04-26 18:46:57
 
-# List of data sets with the waveguide calibration. These files are assumed to represent different calibration frequency ranges. Each data set gets analyzed separately, but after the analysis the results are combined into a single pd.DataFrame.
-
-# The calibration data is not acquired in one data set usually. We have separate data sets corresponding to different frequency ranges. Important condition for the data sets: there should be no overlapping RF frequencies. One can say that we can simply average the data from these overlapping frequencies together (taking weighted average). I tried that, but quite a lot of the data sets, that containt data from the same RF power generator setting from different experiments are quite off from each other: I have seen Reduced Chi-squared values (for a flat line fit) of 40. I suspect that the main reason for this is that the RF power that gets supplied to the system is not the same at different times for the same RF generator power setting.
-
+# List of data sets with the waveguide calibration.
 exp_folder_name_list = [
-'180512-150946 - Waveguide Calibration - 908-912 MHz 41 Frequencies, 4 cm', '180512-232655 - Waveguide Calibration - 912.1-916 MHz 40 Frequencies, 4 cm',
-'180513-124116 - Waveguide Calibration - 904-907.9 MHz 40 Frequencies, 4 cm',
-'180513-215656 - Waveguide Calibration - 916.1-920 MHz 40 Frequencies, 4 cm',
-'180514-052148 - Waveguide Calibration - 920.1-922 MHz 20 Frequencies, 4 cm',
-'180515-091949 - Waveguide Calibration - 922.1-926.2 MHz 42 Frequencies, 4 cm',
-'180515-170601 - Waveguide Calibration - 900.0-903.9 MHz 40 Frequencies, 4 cm',
-'180516-003056 - Waveguide Calibration - 896.0-899.9 MHz 40 Frequencies, 4 cm',
-'180516-075539 - Waveguide Calibration - 893.8-895.9 MHz 22 Frequencies, 4 cm'
-]
-
-exp_folder_name_list = [
-'180512-150946 - Waveguide Calibration - 908-912 MHz 41 Frequencies, 4 cm', '180512-232655 - Waveguide Calibration - 912.1-916 MHz 40 Frequencies, 4 cm',
-'180513-124116 - Waveguide Calibration - 904-907.9 MHz 40 Frequencies, 4 cm',
-'180513-215656 - Waveguide Calibration - 916.1-920 MHz 40 Frequencies, 4 cm',
-#'180514-052148 - Waveguide Calibration - 920.1-922 MHz 20 Frequencies, 4 cm',
-#'180515-091949 - Waveguide Calibration - 922.1-926.2 MHz 42 Frequencies, 4 cm',
-'180515-170601 - Waveguide Calibration - 900.0-903.9 MHz 40 Frequencies, 4 cm',
-#'180516-003056 - Waveguide Calibration - 896.0-899.9 MHz 40 Frequencies, 4 cm',
-#'180516-075539 - Waveguide Calibration - 893.8-895.9 MHz 22 Frequencies, 4 cm',
-'180519-115023 - Waveguide Calibration - 0 config, PD ON 120 V, 893.8-898 MHz',
-'180519-234232 - Waveguide Calibration - 0 config, PD ON 120 V, 922.0-926 MHz',
-'180520-105642 - Waveguide Calibration - 0 config, PD ON 120 V, 918.0-922 MHz',
-'180521-002244 - Waveguide Calibration - 0 config, PD ON 120 V, 898-902 MHz'
+'180422-194232 - Waveguide Calibration - 85 Frequency, Large Range'
 ]
 
 data_set_df = None
@@ -93,7 +136,7 @@ for exp_folder_name in exp_folder_name_list:
 data_set_df.index.names = ['Experiment Folder Name']
 #%%
 # Take a look at the DC value over time for one of the particular data sets. This is basically to show that one cannot assume that the standard deviation in the mean of the digitizer trace is a good indicator in the stability of DC over the course of power scan for a given frequency.
-data_set = data_set_df.iloc[4]['Data Set']
+data_set = data_set_df.iloc[0]['Data Set']
 
 fig, ax = plt.subplots()
 fig.set_size_inches(15, 10)
@@ -106,57 +149,11 @@ ax.plot(x_arr, y_arr, color='blue')
 
 plt.show()
 #%%
-# Drop overlapping frequencies from the data sets. This is done manually.
-
-def remove_overlapping_freq(exp_name_keep, exp_name_remove):
-
-    data_set_keep = data_set_df.loc[exp_name_keep, 'Data Set']
-    data_set_remove = data_set_df.loc[exp_name_remove, 'Data Set']
-
-
-    exp_keep_data_df = data_set_keep.get_exp_data()
-    exp_remove_data_df = data_set_remove.get_exp_data()
-
-    intersecting_freq_list = list(exp_keep_data_df.index.get_level_values(freq_column_name).intersection(exp_remove_data_df.index.get_level_values(freq_column_name)).drop_duplicates())
-
-    if len(intersecting_freq_list) > 0:
-
-        # Here we set to drop inplace to True, to make sure that the id of the dataframe does not change, so that it is still linked to the object's data
-        exp_remove_data_df.drop(index=intersecting_freq_list, level=freq_column_name, inplace=True)
-
-        data_set_remove.flush_data()
-
-        data_set_remove.average_surv_frac_data()
-    else:
-        print('No overlapping index found')
-
-
-
-#%%
-exp_name_keep = '180521-002244 - Waveguide Calibration - 0 config, PD ON 120 V, 898-902 MHz'
-exp_name_remove = '180519-115023 - Waveguide Calibration - 0 config, PD ON 120 V, 893.8-898 MHz'
-
-remove_overlapping_freq(exp_name_keep, exp_name_remove)
-
-exp_name_keep = '180520-105642 - Waveguide Calibration - 0 config, PD ON 120 V, 918.0-922 MHz'
-exp_name_remove = '180519-234232 - Waveguide Calibration - 0 config, PD ON 120 V, 922.0-926 MHz'
-
-remove_overlapping_freq(exp_name_keep, exp_name_remove)
-
-exp_name_keep = '180521-002244 - Waveguide Calibration - 0 config, PD ON 120 V, 898-902 MHz'
-exp_name_remove = '180515-170601 - Waveguide Calibration - 900.0-903.9 MHz 40 Frequencies, 4 cm'
-
-remove_overlapping_freq(exp_name_keep, exp_name_remove)
-
-exp_name_keep = '180520-105642 - Waveguide Calibration - 0 config, PD ON 120 V, 918.0-922 MHz'
-exp_name_remove = '180513-215656 - Waveguide Calibration - 916.1-920 MHz 40 Frequencies, 4 cm'
-
-remove_overlapping_freq(exp_name_keep, exp_name_remove)
-#%%
 # Combine the averaged surviving fractions from all of the data sets together.
 data_set_grouped_df = data_set_df.groupby('Experiment Folder Name')
 
 surv_frac_av_df = data_set_grouped_df.apply(lambda df: df['Data Set'].iloc[0].average_surv_frac_data()).reset_index(level='Experiment Folder Name', drop=True).sort_index()
+
 #%%
 # Beam speed to use for the simulation [cm/ns]. All of the waveguide calibration data was acquired at 49.87 kV of accelerating voltage. This was later measured to correspond to 0.3223 cm/ns.
 v_speed = 0.3223
@@ -197,7 +194,7 @@ def check_fract_offset(fract_DC_offset):
     else:
         return fract_DC_offset
 
-# Fractional offset to use.
+# Fractional offset used for the data
 fract_DC_offset = 0.03
 
 
@@ -207,31 +204,33 @@ fract_DC_offset = check_fract_offset(fract_DC_offset)
 off_axis_dist = 1.8
 
 # Settings for the Waveguides power calibration.
+# I am not using the boundary conditions here, because the fits do not look that good. I guess the problem is in normalization of the data done in the raw data analysis. This causes the statement that, for example at zero power, the DC On/Off Ratio is 1 to be not true anymore.
 wvg_calib_param_dict =    {
-            'Date [date object]': datetime.date(year=2018, month=5, day=12),
-            'Waveguide Separation [cm]': 4,
+            'Date [date object]': datetime.date(year=2018, month=4, day=22),
+            'Waveguide Separation [cm]': 6,
             'Accelerating Voltage [kV]': 49.87,
-            'RF Frequency Scan Range [MHz]': '894-926',
+            'RF Frequency Scan Range [MHz]': '906-914',
             'Atom Off-Axis Distance (Simulation) [mm]': 1.8,
             'Fractional DC Offset': fract_DC_offset,
             'Minimum RF E Field Amplitude [V/cm]': 5,
             'Maximum RF E Field Amplitude [V/cm]': 27,
             'Use Boundary Conditions': True,
-            'Polynomial Fit Order': 3
+			'Polynomial Fit Order': 3
                     }
 #%%
 wvg_calib_analysis = WaveguideCalibrationAnalysis(load_Q=True, quench_sim_vs_freq_df=quench_sim_vs_freq_df, surv_frac_av_df=surv_frac_av_df, wvg_calib_param_dict=wvg_calib_param_dict)
-
+#%%
 quench_sim_data_sets_df = wvg_calib_analysis.analyze_simulation_quench_curves()
+#%%
 surv_frac_converted_df = wvg_calib_analysis.extract_E_fields()
-
+#%%
 # RF E Field amplitude vs RF power parameters fit curves.
 extracted_E_field_vs_RF_power_fits_set_df = wvg_calib_analysis.get_converted_E_field_curve_fits()
 # DC On/Off Ratio vs RF power parameters fit curves
 surv_frac_vs_RF_power_fits_set_df = wvg_calib_analysis.get_quench_curve_fits()
 #%%
 # Plotting the extracted fit curves
-rf_freq = 900.0
+rf_freq = 910.4
 rf_channel = 'A'
 #%%
 fig, axes = plt.subplots(nrows=3, ncols=3)
@@ -253,12 +252,12 @@ surv_frac_vs_RF_power_fits_set_df.loc[rf_channel, rf_freq]
 rf_e_field_calib_df = wvg_calib_analysis.perform_power_calib()
 calib_av_df = wvg_calib_analysis.get_av_calib_data()
 #%%
-rf_e_field_ampl = 8.0
+rf_e_field_ampl = 18.0
 rf_channel = 'A'
 
 fig, axes = plt.subplots(nrows=1, ncols=4)
 
-fig.set_size_inches(24, 8)
+fig.set_size_inches(30, 8)
 
 axes = wvg_calib_analysis.get_calibration_plot(rf_channel, rf_e_field_ampl, axes)
 
@@ -273,17 +272,17 @@ fract_DC_offset_half = check_fract_offset(fract_DC_offset_half)
 
 # Settings for the Waveguides power calibration.
 wvg_calib_param_dict =    {
-            'Date [date object]': datetime.date(year=2018, month=5, day=12),
-            'Waveguide Separation [cm]': 4,
+            'Date [date object]': datetime.date(year=2018, month=4, day=22),
+            'Waveguide Separation [cm]': 6,
             'Accelerating Voltage [kV]': 49.87,
-            'RF Frequency Scan Range [MHz]': '894-926',
+            'RF Frequency Scan Range [MHz]': '906-914',
             'Atom Off-Axis Distance (Simulation) [mm]': 1.8,
             'Fractional DC Offset': fract_DC_offset_half,
             'Minimum RF E Field Amplitude [V/cm]': 5,
             'Maximum RF E Field Amplitude [V/cm]': 27,
             'Use Boundary Conditions': True,
-            'Polynomial Fit Order': 3
-                        }
+			'Polynomial Fit Order': 3
+                    }
 # We now calculate the calibration for the case when the fractional offset is 50% smaller.
 wvg_calib_analysis_half = WaveguideCalibrationAnalysis(load_Q=True, quench_sim_vs_freq_df=quench_sim_vs_freq_df, surv_frac_av_df=surv_frac_av_df, wvg_calib_param_dict=wvg_calib_param_dict)
 
@@ -296,7 +295,7 @@ extracted_E_field_vs_RF_power_fits_set_df = wvg_calib_analysis_half.get_converte
 surv_frac_vs_RF_power_fits_set_df = wvg_calib_analysis_half.get_quench_curve_fits()
 #%%
 # Plotting the extracted fit curves
-rf_freq = 894.0
+rf_freq = 910.4
 rf_channel = 'A'
 #%%
 fig, axes = plt.subplots(nrows=3, ncols=3)
@@ -325,6 +324,7 @@ fig, axes = plt.subplots(nrows=1, ncols=4)
 fig.set_size_inches(24, 8)
 
 axes = wvg_calib_analysis_half.get_calibration_plot(rf_channel, rf_e_field_ampl, axes)
+
 plt.show()
 #%%
 wvg_calib_analysis_half.save_instance()
@@ -336,16 +336,16 @@ fract_DC_offset_plus_half = check_fract_offset(fract_DC_offset_plus_half)
 
 # Settings for the Waveguides power calibration.
 wvg_calib_param_dict =    {
-            'Date [date object]': datetime.date(year=2018, month=5, day=12),
-            'Waveguide Separation [cm]': 4,
+            'Date [date object]': datetime.date(year=2018, month=4, day=22),
+            'Waveguide Separation [cm]': 6,
             'Accelerating Voltage [kV]': 49.87,
-            'RF Frequency Scan Range [MHz]': '894-926',
+            'RF Frequency Scan Range [MHz]': '906-914',
             'Atom Off-Axis Distance (Simulation) [mm]': 1.8,
             'Fractional DC Offset': fract_DC_offset_plus_half,
             'Minimum RF E Field Amplitude [V/cm]': 5,
             'Maximum RF E Field Amplitude [V/cm]': 27,
             'Use Boundary Conditions': True,
-            'Polynomial Fit Order': 3
+			'Polynomial Fit Order': 3
                         }
 
 wvg_calib_analysis_plus_half = WaveguideCalibrationAnalysis(load_Q=True, quench_sim_vs_freq_df=quench_sim_vs_freq_df, surv_frac_av_df=surv_frac_av_df, wvg_calib_param_dict=wvg_calib_param_dict)
@@ -359,7 +359,7 @@ extracted_E_field_vs_RF_power_fits_set_df = wvg_calib_analysis_plus_half.get_con
 surv_frac_vs_RF_power_fits_set_df = wvg_calib_analysis_plus_half.get_quench_curve_fits()
 #%%
 # Plotting the extracted fit curves
-rf_freq = 894.0
+rf_freq = 910.0
 rf_channel = 'A'
 #%%
 fig, axes = plt.subplots(nrows=3, ncols=3)
@@ -380,7 +380,7 @@ surv_frac_vs_RF_power_fits_set_df.loc[rf_channel, rf_freq]
 rf_e_field_calib_df = wvg_calib_analysis_plus_half.perform_power_calib()
 calib_av_df = wvg_calib_analysis_plus_half.get_av_calib_data()
 #%%
-rf_e_field_ampl = 14.0
+rf_e_field_ampl = 8.0
 rf_channel = 'A'
 
 fig, axes = plt.subplots(nrows=1, ncols=4)
@@ -393,7 +393,7 @@ plt.show()
 #%%
 wvg_calib_analysis_plus_half.save_instance()
 #%%
-rf_e_field_ampl = 8.0
+rf_e_field_ampl = 18.0
 rf_channel = 'A'
 
 # Comparison between the calibration curves obtained for various fractional DC offsets. The fractional deviations tells us the range of different powers that we can set for the RF waveguides. This at the same time gives us the idea of the uncertainty in the RF power in the waveguides, because if at larger fractional DC offset we need to put roughly 10% more power into the RF system, it means that the RF power inside the waveguides is 10% larger for the larger fractional DC offset.
@@ -441,4 +441,3 @@ av_RF_power_calib_error_df
 # Save the average RF power calibration error in the power calibration with the initial fractional DC offset.
 wvg_calib_analysis.set_av_rf_power_calib_error(av_RF_power_calib_error_df)
 wvg_calib_analysis.save_instance()
-#%%

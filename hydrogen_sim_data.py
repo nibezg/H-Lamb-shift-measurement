@@ -328,7 +328,6 @@ class OldWaveguideQuenchCurveSimulation():
 # sim_name_list = old_quench_sim_set.get_list_of_simulations()
 # sim_name_list
 # quench_sim_vs_freq_df = old_quench_sim_set.get_simulation_data(sim_name_list[0])
-# quench_sim_vs_freq_df
 # #%%
 # rf_freq = 910.0
 #
@@ -344,3 +343,5 @@ class OldWaveguideQuenchCurveSimulation():
 # plt.show()
 # #%%
 # axes[0]
+# #%%
+# quench_sim_vs_freq_df.loc[910]

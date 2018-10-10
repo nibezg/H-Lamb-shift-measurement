@@ -52,6 +52,7 @@ class WaveguideCalibrationAnalysis():
         'Minimum RF E Field Amplitude [V/cm]' - Minimum E field amplitude for which the calibration is performed. We do not take data at RF E field amplitudes lower than 5 V/cm.
         'Maximum RF E Field Amplitude [V/cm]' - (float) used to determine minimum surviving fraction used for the analysis. The reason for doing this is that for low powers the quench cuve is quite linear with power, which makes it possible to assume that low-order polynomial should be enough to fit the data well. This setting also puts a limit on the maximum E field for which the calibration procedure is performed. The rule is that the calibration is performed up to E_field_ampl_max - 2. Thus, if E_field_ampl_max = 27 (V/cm), then the maximum E field amplitude for which the calibration is performed is 25 V/cm.
         'Use Boundary Conditions' - boolean. We can assume that, for instance, when RF generator is not outputting any power, then the surviving fraction is 1, which is known very reliably. In principle this type of boundary condition should make the calibration more reliable, especially at low power settings.
+        'Polynomial Fit Order' - (integer) order of the polynomial fit used to extract E fields. Usually I would use the value 3 for this. However, it seems that sometimes 4th-order polynomial results in much better fits. Of course it is important not to overfit the data.
     :load_Q: (bool) Loads the previously instantiated class instance with the same calib_folder_name, if it was saved before.
     '''
 
@@ -60,28 +61,59 @@ class WaveguideCalibrationAnalysis():
         # Location for storing the analysis folders
         self.saving_folder_location = 'C:/Research/Lamb shift measurement/Data/Waveguide calibration'
 
+        # Version of the data analysis. Notice that this version number is 'engraved' in the analysis data file name. Thus one has to use the appropriate data analysis version.
+        self.version_number = 0.1
+
         def construct_calib_file_name(wvg_calib_param_dict):
             ''' Converts the important parameters in the calibration parameters dictionary into a file name for storage.
             '''
 
-            calib_folder_name = wvg_calib_param_dict['Date [date object]'].strftime('%Y%m%d') + 'T' + str(wvg_calib_param_dict['Waveguide Separation [cm]']) + 'E' + str(wvg_calib_param_dict['Accelerating Voltage [kV]']) + 'f' + wvg_calib_param_dict['RF Frequency Scan Range [MHz]'] + 'r' + str(wvg_calib_param_dict['Atom Off-Axis Distance (Simulation) [mm]']) + 'fo' + str(round(wvg_calib_param_dict['Fractional DC Offset'],3))
+            # Calibration data analysis folder name.
 
-            return calib_folder_name
+            calib_folder_name = wvg_calib_param_dict['Date [date object]'].strftime('%Y%m%d') + 'T' + str(wvg_calib_param_dict['Waveguide Separation [cm]']) + 'E' + str(wvg_calib_param_dict['Accelerating Voltage [kV]']) + 'f' + wvg_calib_param_dict['RF Frequency Scan Range [MHz]']
+
+            # Analysis data file name
+
+            analysis_data_file_name = calib_folder_name + 'r' + str(wvg_calib_param_dict['Atom Off-Axis Distance (Simulation) [mm]']) + 'fo' + str(round(wvg_calib_param_dict['Fractional DC Offset'],3)) + 'v' + str(self.version_number) + '.pckl'
+
+            return calib_folder_name, analysis_data_file_name
 
         self.wvg_calib_param_s = pd.Series(wvg_calib_param_dict)
 
-        self.calib_folder_name = construct_calib_file_name(wvg_calib_param_dict)
+        self.calib_folder_name, self.analysis_data_file_name = construct_calib_file_name(wvg_calib_param_dict)
 
         # Checking if the class instance has been saved before. If it was, then in case the user wants to load the data, it gets loaded. In all other cases the initialization continues.
+
+        self.perform_analysis_Q = False
+
         os.chdir(self.saving_folder_location)
         if os.path.isdir(self.calib_folder_name):
-            print('The analysis instance has been previously saved.')
-            if load_Q:
-                self.load_instance()
+
+            print('The analysis folder exists. Checking whether the analysis file exists...')
+            os.chdir(self.calib_folder_name)
+
+            if os.path.isfile(self.analysis_data_file_name):
+                print('The analysis instance has been previously saved.')
+                if load_Q:
+                    print('Loading the analysis data...')
+                    self.load_instance()
+                    # Interesting effect here: if the data has been saved before with the perform_analysis_Q flag set to True, then after loading the data it sets is flag to True, making the analysis code believe that the analysis has not been performed before. That is why I have to set it to False here.
+                    self.perform_analysis_Q = False
+                else:
+                    self.perform_analysis_Q = True
+            else:
+                print('No analysis instance of version ' + str(self.version_number) + ' has been found.')
+                self.perform_analysis_Q = True
         else:
+            self.perform_analysis_Q = True
+
+        # The analysis gets performed if the perform_analysis_Q flag is True.
+        if self.perform_analysis_Q:
 
             self.use_boundary_condition_bool = self.wvg_calib_param_s['Use Boundary Conditions']
             self.fract_DC_offset = self.wvg_calib_param_s['Fractional DC Offset']
+
+            self.poly_fit_order = self.wvg_calib_param_s['Polynomial Fit Order']
 
             E_field_ampl_min = self.wvg_calib_param_s['Minimum RF E Field Amplitude [V/cm]']
             E_field_ampl_max = self.wvg_calib_param_s['Maximum RF E Field Amplitude [V/cm]']
@@ -355,7 +387,7 @@ class WaveguideCalibrationAnalysis():
                     spl_inverted = scipy.interpolate.UnivariateSpline(x=x_data_inverted_arr, y=y_data_inverted_arr, k=spline_order, s=0)
 
                     # Polynomial fit order
-                    pol_fit_order = 3
+                    pol_fit_order = self.poly_fit_order
 
                     polyfit = np.polyfit(x_data_arr, y_data_arr, deg=pol_fit_order, w=1/y_data_std_arr**2)
 
@@ -479,7 +511,7 @@ class WaveguideCalibrationAnalysis():
                     spl_inverted = scipy.interpolate.UnivariateSpline(x=x_data_inverted_arr, y=y_data_inverted_arr, k=spline_order, s=0)
 
                     # Polynomial fit order
-                    pol_fit_order = 3
+                    pol_fit_order = self.poly_fit_order
 
                     polyfit = np.polyfit(x_data_arr, y_data_arr, deg=pol_fit_order, w=1/y_data_std_arr**2)
 
@@ -886,7 +918,7 @@ class WaveguideCalibrationAnalysis():
         return self.rf_e_field_calib_df
 
     def get_av_calib_data(self):
-        ''' Averages all of the calibration data obtained from different method together to obtain one pd.DataFrame object with the averaged calibration.
+        ''' Averages all of the calibration data obtained from different methods together to obtain one pd.DataFrame object with the averaged calibration.
         '''
         if self.calib_av_df is None:
             calib_av_df = self.rf_e_field_calib_df.groupby(['Generator Channel', 'E Field [V/cm]', freq_column_name]).aggregate(['mean', lambda x: np.std(x, ddof=1)])
@@ -971,7 +1003,7 @@ class WaveguideCalibrationAnalysis():
         os.chdir(self.saving_folder_location)
         os.chdir(self.calib_folder_name)
 
-        f = open(self.calib_folder_name+'.pckl', 'rb')
+        f = open(self.analysis_data_file_name, 'rb')
         loaded_dict = pickle.load(f)
         f.close()
         self.__dict__.update(loaded_dict)
@@ -988,14 +1020,14 @@ class WaveguideCalibrationAnalysis():
         # Created folder that will contain all of the analyzed data
         os.chdir(self.saving_folder_location)
 
-        if os.path.isdir(self.calib_folder_name):
-            print('Saving data folder already exists. It will be rewritten.')
-            shutil.rmtree(self.calib_folder_name)
+        if os.path.isdir(self.calib_folder_name) == False:
+            os.mkdir(self.calib_folder_name)
+        else:
+            print('Saving data folder already exists.')
 
-        os.mkdir(self.calib_folder_name)
         os.chdir(self.calib_folder_name)
 
-        f = open(self.calib_folder_name+'.pckl', 'wb')
+        f = open(self.analysis_data_file_name, 'wb')
         pickle.dump(self.__dict__, f, 2)
 
         os.chdir(self.saving_folder_location)

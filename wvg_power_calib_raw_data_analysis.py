@@ -80,6 +80,34 @@ class DataSetQuenchCurveWaveguide():
             # Convert data types of some columns
             self.exp_data_df = self.exp_data_df.astype({'Time': np.float64, 'Repeat': np.int16})
 
+            # Check for abs(DC) values larger than 10 V. These indicate either saturated amplifier or a high voltage that exceedes range setting of a digitizer. This might not even indicate that there is something wrong with the digitizer settings, for instance, or the gain setting on the amplifier, since it could be just a sudden spike in the detector current.
+
+            digi_dc_gen_on_large_df = self.exp_data_df[np.abs(self.exp_data_df['Digitizer DC (Generator On) [V]']) > 10]
+            digi_dc_gen_off_large_df = self.exp_data_df[np.abs(self.exp_data_df['Digitizer DC (Generator Off) [V]']) > 10]
+
+            if digi_dc_gen_on_large_df.shape[0] > 0:
+                print('Digitizer DC (Generator On) values have been found that are larger than 10 Volts. There are ' + str(digi_dc_gen_on_large_df.shape[0]) + ' rows. Dropping these rows.')
+
+            if digi_dc_gen_off_large_df.shape[0] > 0:
+                print('Digitizer DC (Generator Off) values have been found that are larger than 10 Volts. There are ' + str(digi_dc_gen_off_large_df.shape[0]) + ' rows. Dropping these rows.')
+
+            self.exp_data_df.drop(digi_dc_gen_on_large_df.index, inplace=True)
+            self.exp_data_df.drop(digi_dc_gen_off_large_df.index, inplace=True)
+
+            # It is also possible to have some DC values that are very off from the bulk of the DC values. This can happen when, for instance, the DC suddenly drops. The problem with this is that if this drop, for instance, is quite short, then at a given repeat and RF power setting all of the frequencies will be affected. It is better to drop these data sets.
+
+            # This type of the issue is observed, for example, in '180522-195929 - Waveguide Calibration - 0 config, PD ON 82.5 V, 22.17 kV, 908-912 MHz'.
+
+            # Maximum multiple of sigma that a DC value can be off from its mean.
+            max_sigma_off = 5
+
+            digi_dc_gen_off_diff_values_df = self.exp_data_df[(np.abs(self.exp_data_df['Digitizer DC (Generator Off) [V]']-self.exp_data_df['Digitizer DC (Generator Off) [V]'].mean())/self.exp_data_df['Digitizer DC (Generator Off) [V]'].std()) > max_sigma_off]
+
+            if digi_dc_gen_off_diff_values_df.shape[0] > 0:
+                print('Digitizer DC (Generator Off) values have been found that are more than ' + str(max_sigma_off) + ' sigma off from the average. There are ' + str(digi_dc_gen_off_diff_values_df.shape[0]) + ' rows. Dropping these rows.')
+
+            self.exp_data_df.drop(digi_dc_gen_off_diff_values_df.index, inplace=True)
+
             # Add a column of elapsed time since the start of the acquisition
             self.exp_data_df['Elapsed Time [s]'] = self.exp_data_df['Time'] - self.exp_data_df['Time'].min()
 
@@ -220,7 +248,7 @@ class DataSetQuenchCurveWaveguide():
 
             freq_to_use = self.digitizer_data_df.reset_index()[freq_column_name].iloc[0]
 
-            self.beam_dc_rf_off_df = self.digitizer_data_df.loc[(slice(None), slice(None), slice(None), freq_to_use), ('Generator Off')]
+            self.beam_dc_rf_off_df = self.digitizer_data_df.loc[(slice(None), slice(None), slice(None), slice(None)), ('Generator Off')]
             self.beam_dc_rf_off_df = self.beam_dc_rf_off_df.sort_values(by='Elapsed Time [s]')
 
         return self.beam_dc_rf_off_df
@@ -299,6 +327,11 @@ class DataSetQuenchCurveWaveguide():
 
         # Looking at the DC for when RF power is off shows that the variation in DC = in true value is very large from one value to another compared to uncertainty in DC. This means that the standard deviations are not a good indicator of the uncertainty in surviving fractions. Thus we indeed should look at the spread of surviving fractions for given RF frequency and RF power and determine the standard deviation from that.
 
+        # =======================
+        # Added on October 3 2018
+        # =======================
+        # While writing the analysis code for the older calibration data, namely '180327-173323 - Waveguide Calibration - 41 Frequencies, Medium Range', where we were switching the RF generator power state (On or Off) for every average, I had to use pooled standard deviation: I assumed that for all RF frequencies for given RF generator channel and RF power, the standard deviation should roughly be the same. I realized now that in principle I can use the same idea here. Thus I will combine standard deviations from all of the repeats and all fo the RF frequencies together (same generator channel + same RF power setting) and calculated pooled std = rms std.
+
         # ================
         # IMPORTANT (2018-09-12)
         #
@@ -318,6 +351,7 @@ class DataSetQuenchCurveWaveguide():
 
             surv_frac_to_average_df = self.surv_frac_df.reset_index().set_index(surv_frac_index_list).sort_index()
 
+            # Calculate the average surviving fraction
             surv_frac_to_average_index_list = list(surv_frac_to_average_df.index.names)
             surv_frac_to_average_index_list.remove('Elapsed Time [s]')
             surv_frac_to_average_index_list.remove('Repeat')
@@ -326,13 +360,42 @@ class DataSetQuenchCurveWaveguide():
 
             mean_df = surv_frac_df_grouped.aggregate(lambda x: np.mean(x))
 
+            # Needed for calculation of the pooled std.
+            num_av_points_s = surv_frac_df_grouped['DC On/Off Ratio'].aggregate(lambda x: x.shape[0])
+            num_av_points_s.name = 'Number Of Averaged Data Points'
+
             stdom_df = surv_frac_df_grouped.aggregate(lambda x: np.std(x, ddof=1)/np.sqrt(x.shape[0]))
 
-            surv_frac_av_df = mean_df.join(stdom_df.rename(columns={'DC On/Off Ratio': 'DC On/Off Ratio STDOM', 'RF System Power Sensor Reading [V]': 'RF System Power Sensor Reading STDOM [V]', 'RF System Power Sensor Detected Power [mW]': 'RF System Power Sensor Detected Power STDOM [mW]'}))
+            surv_frac_av_df = mean_df.join(stdom_df.rename(columns={'DC On/Off Ratio': 'DC On/Off Ratio STDOM', 'RF System Power Sensor Reading [V]': 'RF System Power Sensor Reading STDOM [V]', 'RF System Power Sensor Detected Power [mW]': 'RF System Power Sensor Detected Power STDOM [mW]'}).join(pd.DataFrame(num_av_points_s)))
 
-            # I was thinking about computing RMS STDOM for DC On/Off Ratios, hoping that it might improve the quality of the fits, but it is not a correct thing to do: the standard deviations clearly get smaller as we get closer to pi-pulse. I want wondering if the fractional error is consistent for all RF powers - not true as well, since the fractional error actually gets larger for higher RF powers.
+            surv_frac_av_df['DC On/Off Ratio STD'] = surv_frac_av_df['DC On/Off Ratio STDOM'] * np.sqrt(surv_frac_av_df['Number Of Averaged Data Points'])
 
-            self.surv_frac_av_df = surv_frac_av_df
+            # Calculated the pooled std = RMS std by combining data from all of the repeats and all of the waveguide frequencies, for given RF power and Generator channel, together.
+
+            # Need to swap some levels for convenience.
+            surv_frac_av_for_sigma_rms_df = surv_frac_av_df.swaplevel(j='RF Generator Power Setting [dBm]', i='Waveguide Carrier Frequency [MHz]').sort_index()
+
+
+            # Calculate pooled std.
+            surv_frac_av_for_sigma_rms_grouped_df = surv_frac_av_for_sigma_rms_df.groupby(['Generator Channel', 'RF Generator Power Setting [dBm]'])
+
+            surv_frac_av_sigma_rms_df = surv_frac_av_for_sigma_rms_grouped_df.apply(lambda df: pd.Series(pooled_std(df['DC On/Off Ratio STD'].values, df['Number Of Averaged Data Points'].values))).rename(columns={0: 'DC On/Off Ratio RMS STD'})
+
+            # Combined the pooled std (= rms std) with the rest of the data
+            surv_frac_av_with_rms_unc_df = surv_frac_av_for_sigma_rms_df.reset_index().set_index(surv_frac_av_sigma_rms_df.index.names).join(surv_frac_av_sigma_rms_df, how='inner').reset_index().set_index(surv_frac_av_for_sigma_rms_df.index.names).sort_index()
+
+            # Calculate RMS STDOM
+            surv_frac_av_with_rms_unc_df['DC On/Off Ratio RMS STDOM'] = surv_frac_av_with_rms_unc_df['DC On/Off Ratio RMS STD'] / np.sqrt(surv_frac_av_with_rms_unc_df['Number Of Averaged Data Points'])
+
+            # Form the dataframe to return. We want it to be have the same columns (and names) as we have in the code for analysing newer RF power calibration data sets.
+            surv_frac_av_to_return_df = surv_frac_av_df.drop(columns=['DC On/Off Ratio STDOM', 'DC On/Off Ratio STD', 'Number Of Averaged Data Points'])
+
+            surv_frac_av_to_return_df['DC On/Off Ratio STDOM'] = surv_frac_av_with_rms_unc_df.swaplevel(j='RF Generator Power Setting [dBm]', i='Waveguide Carrier Frequency [MHz]').sort_index()['DC On/Off Ratio RMS STDOM']
+
+            # This data is not meant to be directly accessible, but it is useful to have it for making plots and etc.
+            self.surv_frac_av_with_rms_unc_df = surv_frac_av_with_rms_unc_df
+
+            self.surv_frac_av_df = surv_frac_av_to_return_df
 
 
 
@@ -396,6 +459,17 @@ class DataSetQuenchCurveWaveguide():
 
         print('The class instance has been saved')
 #%%
-# data_set = DataSetQuenchCurveWaveguide('180512-150946 - Waveguide Calibration - 908-912 MHz 41 Frequencies, 4 cm')
+# data_set = DataSetQuenchCurveWaveguide('180522-195929 - Waveguide Calibration - 0 config, PD ON 82.5 V, 22.17 kV, 908-912 MHz')
 # #%%
-# data_set.get_surv_frac_data()
+# beam_dc_rf_off_df = data_set.get_beam_dc_rf_off()
+# av_data_df = data_set.average_surv_frac_data()
+# #%%
+# rf_pwr_setting_list = list(data_set.surv_frac_av_with_rms_unc_df.index.get_level_values('RF Generator Power Setting [dBm]').drop_duplicates())
+# print(rf_pwr_setting_list)
+# #%%
+# # Plot to see that we do indeed need to use RMS uncertainty, because some frequencies might have significantly smaller uncertaintiy in the DC On/Off ratio compared to its neighbours.
+# fig, ax = plt.subplots()
+# fig.set_size_inches(12, 8)
+# data_set.surv_frac_av_with_rms_unc_df.loc['A', -2.8].plot(kind='bar', use_index=True, y='DC On/Off Ratio STDOM', ax=ax)
+# plt.show()
+# #%%

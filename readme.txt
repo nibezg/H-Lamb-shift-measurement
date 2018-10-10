@@ -1,5 +1,10 @@
 Code for analysis of the data for the n=2 Lamb Shift measurement is presented here.
 
+2018-10-10 (12:27)
+
+- Lots of changes to various codes. Better power calibration. Improved code for common-mode phase shift analysis, etc.
+
+
 2018-09-28 (15:07)
 - Improved the common_mode_phase_shift_analysis.py code. Now the analysis of data will be much faster, because the previously analyzed data is stored in a .csv file.
 
@@ -22,3 +27,4 @@ Code for analysis of the data for the n=2 Lamb Shift measurement is presented he
 - Fixed a bug with pd.DataFrame.set_index(general_index)
 	This is a bad thing to do, because it simply resets the index of the dataframe to the one in general_index, thus loosing indexing accuracy
 - Improved speed of execution of certain function
+

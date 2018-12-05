@@ -7,9 +7,15 @@ import os
 import string
 import shutil
 
-sys.path.insert(0,"C:/Users/Helium1/Google Drive/Research/Lamb shift measurement/Code") #
+# For lab
+#sys.path.insert(0,"C:/Users/Helium1/Google Drive/Research/Lamb shift measurement/Code")
+# For home
+sys.path.insert(0,"E:/Google Drive/Research/Lamb shift measurement/Code")
+
+saving_folder_location = 'E:/Google Drive/Research/Lamb shift measurement/Data/Waveguide calibration'
+
 from exp_data_analysis import *
-from fosof_data_set_analysis import *
+#from fosof_data_set_analysis import *
 from ZX47_Calibration_analysis import *
 from KRYTAR_109_B_Calib_analysis import *
 from hydrogen_sim_data import *
@@ -54,33 +60,42 @@ class WaveguideCalibrationAnalysis():
         'Use Boundary Conditions' - boolean. We can assume that, for instance, when RF generator is not outputting any power, then the surviving fraction is 1, which is known very reliably. In principle this type of boundary condition should make the calibration more reliable, especially at low power settings.
         'Polynomial Fit Order' - (integer) order of the polynomial fit used to extract E fields. Usually I would use the value 3 for this. However, it seems that sometimes 4th-order polynomial results in much better fits. Of course it is important not to overfit the data.
     :load_Q: (bool) Loads the previously instantiated class instance with the same calib_folder_name, if it was saved before.
+    :calib_folder_name: Should be used only when the analysis data has been previously saved. Name of the calibration folder. If given, then the wvg_calib_param_dict gets bypassed (thus one does not need to specify it) and the data gets loaded. Notice that load_Q has to be TRUE for this parameter to be taken into account.
+    :calib_file_name: Part of the calib_folder_name specification. It is needed to load the proper file.
     '''
 
-    def __init__(self, wvg_calib_param_dict, load_Q=True, quench_sim_vs_freq_df=None, surv_frac_av_df=None):
+    def __init__(self, wvg_calib_param_dict=None, load_Q=True, quench_sim_vs_freq_df=None, surv_frac_av_df=None, calib_folder_name=None, calib_file_name=None):
 
         # Location for storing the analysis folders
-        self.saving_folder_location = 'C:/Research/Lamb shift measurement/Data/Waveguide calibration'
+        #self.saving_folder_location = 'C:/Research/Lamb shift measurement/Data/Waveguide calibration'
+        # For home
+        self.saving_folder_location = saving_folder_location
 
         # Version of the data analysis. Notice that this version number is 'engraved' in the analysis data file name. Thus one has to use the appropriate data analysis version.
         self.version_number = 0.1
 
-        def construct_calib_file_name(wvg_calib_param_dict):
-            ''' Converts the important parameters in the calibration parameters dictionary into a file name for storage.
-            '''
+        if (wvg_calib_param_dict is None) and (calib_folder_name is not None) and (calib_file_name is not None) and (load_Q):
+            self.calib_folder_name = calib_folder_name
+            self.analysis_data_file_name = calib_file_name
 
-            # Calibration data analysis folder name.
+        else:
 
-            calib_folder_name = wvg_calib_param_dict['Date [date object]'].strftime('%Y%m%d') + 'T' + str(wvg_calib_param_dict['Waveguide Separation [cm]']) + 'E' + str(wvg_calib_param_dict['Accelerating Voltage [kV]']) + 'f' + wvg_calib_param_dict['RF Frequency Scan Range [MHz]']
+            def construct_calib_file_name(wvg_calib_param_dict):
+                ''' Converts the important parameters in the calibration parameters dictionary into a file name for storage.
+                '''
 
-            # Analysis data file name
+                # Calibration data analysis folder name.
 
-            analysis_data_file_name = calib_folder_name + 'r' + str(wvg_calib_param_dict['Atom Off-Axis Distance (Simulation) [mm]']) + 'fo' + str(round(wvg_calib_param_dict['Fractional DC Offset'],3)) + 'v' + str(self.version_number) + '.pckl'
+                calib_folder_name = wvg_calib_param_dict['Date [date object]'].strftime('%Y%m%d') + 'T' + str(wvg_calib_param_dict['Waveguide Separation [cm]']) + 'E' + str(wvg_calib_param_dict['Accelerating Voltage [kV]']) + 'f' + wvg_calib_param_dict['RF Frequency Scan Range [MHz]']
 
-            return calib_folder_name, analysis_data_file_name
+                # Analysis data file name
 
-        self.wvg_calib_param_s = pd.Series(wvg_calib_param_dict)
+                analysis_data_file_name = calib_folder_name + 'r' + str(wvg_calib_param_dict['Atom Off-Axis Distance (Simulation) [mm]']) + 'fo' + str(round(wvg_calib_param_dict['Fractional DC Offset'],3)) + 'v' + str(self.version_number) + '.pckl'
 
-        self.calib_folder_name, self.analysis_data_file_name = construct_calib_file_name(wvg_calib_param_dict)
+                return calib_folder_name, analysis_data_file_name
+
+            self.wvg_calib_param_s = pd.Series(wvg_calib_param_dict)
+            self.calib_folder_name, self.analysis_data_file_name = construct_calib_file_name(wvg_calib_param_dict)
 
         # Checking if the class instance has been saved before. If it was, then in case the user wants to load the data, it gets loaded. In all other cases the initialization continues.
 
@@ -1008,6 +1023,11 @@ class WaveguideCalibrationAnalysis():
         f.close()
         self.__dict__.update(loaded_dict)
         print('The class instance has been loaded')
+
+        # Interesting side effect of the loading function. In case the data stored from a different computer, the path to the saved data can be different. Thus what happens is that the loaded data overwrites the self.saving_folder_location attribute. I need to set it to the current saving folder location in order to avoid errors.
+
+        self.saving_folder_location = saving_folder_location
+
 
         os.chdir(self.saving_folder_location)
 

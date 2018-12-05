@@ -6,9 +6,9 @@ import os
 import string
 import shutil
 # For lab
-sys.path.insert(0,"C:/Users/Helium1/Google Drive/Research/Lamb shift measurement/Code")
+#sys.path.insert(0,"C:/Users/Helium1/Google Drive/Research/Lamb shift measurement/Code")
 # For home
-#sys.path.insert(0,"E:/Google Drive/Code/Python/Testing/Blah 3.7")
+sys.path.insert(0,"E:/Google Drive/Research/Lamb shift measurement/Code")
 from exp_data_analysis import *
 from KRYTAR_109_B_Calib_analysis import *
 import re
@@ -28,12 +28,19 @@ from queue import Queue
 
 # Package for wrapping long string to a paragraph
 import textwrap
+
+import pytz
+
+import hydrogen_sim_data
+import wvg_power_calib_analysis
+
+import pickle
 #%%
 # Location where the analyzed experiment is saved
 # Home location
-saving_folder_location = 'E:/Google Drive/Research/Lamb shift measurement/Data/FOSOF analyzed data sets'
+saving_folder_location = 'E:/2017-10-17 Lamb Shift Measurement/Data/FOSOF analyzed data sets'
 # Lab location
-saving_folder_location = 'C:/Research/Lamb shift measurement/Data/FOSOF analyzed data sets'
+#saving_folder_location = 'C:/Research/Lamb shift measurement/Data/FOSOF analyzed data sets'
 
 # File containing parameters and comments about all of the data sets.
 exp_info_file_name = 'fosof_data_sets_info.csv'
@@ -50,216 +57,295 @@ data_analyzed_file_name = 'data_analyzed v' + str(raw_data_analyzed_version_numb
 
 analyzed_data_folder = 'Data Analysis ' + str(version_number)
 
+# Waveguide RF power calibration analyzed data folder path
+wvg_power_calib_data_folder_path = 'E:/Google Drive/Research/Lamb shift measurement/Data/Waveguide calibration'
 
+wvg_power_calib_info_file_name = 'Waveguide_calibration_info.csv'
+
+os.chdir(wvg_power_calib_data_folder_path)
+
+# Waveguide power calibration info
+wvg_calib_info_df = pd.read_csv(wvg_power_calib_info_file_name, header=2)
+
+wvg_calib_info_df['Start Date'] = pd.to_datetime(wvg_calib_info_df['Start Date'])
+wvg_calib_info_df['End Date'] = pd.to_datetime(wvg_calib_info_df['End Date'])
+
+# File for storing externally written Proton Deflector measured voltages
+exp_pd_volt_file_name = 'fosof_exp_list_PD_voltage.csv'
+
+os.chdir(saving_folder_location)
+exp_pd_volt_df = pd.read_csv(filepath_or_buffer=exp_pd_volt_file_name, delimiter=',', comment='#', header=0, skip_blank_lines=True, index_col=0)
+
+pd_volt_col_name = 'Proton Deflector Voltage [V]'
 
 class DataSetFOSOF():
     ''' General class for FOSOF experiments. It contains all of the required analysis functions
     '''
 
-    def __init__(self, exp_folder_name, load_data_Q=True):
+    def __init__(self, exp_folder_name, load_Q=True, beam_rms_rad_to_load=None):
         ''' Here we open the data file and extract the run parameters and also the type of the data set that was acquired (B field scan or pre-quench 910 switching, etc).
 
         Inputs:
         :exp_folder_name: Folder name of the experiment that needs to be analyzed
         :load_data_Q: Flag whether to load saved analysis data, if it exists
+        :beam_rms_rad_to_load: float [mm]. Only used when load_data_Q is True. This is the RMS radius of the beam assumed for the FOSOF simulations used to correct the FOSOF data for imperfect RF power. If this value is set to None, then uncorrected object gets loaded (if exists)
         '''
 
-        # Reading the csv table containing information about data sets.
-        os.chdir(saving_folder_location)
-        self.exp_info_df = pd.read_csv(filepath_or_buffer=exp_info_file_name, delimiter=',', comment='#', header=0, skip_blank_lines=True)
+        # Version of the data analysis. Notice that this version number is 'engraved' in the analysis data file name. Thus one has to use the appropriate data analysis version.
+        self.version_number = 0.1
 
-        # Remove possible tabs and whitespaces from the end of the experiment folder names
-        self.exp_info_df[exp_info_index_name] = self.exp_info_df[exp_info_index_name].transform(lambda x: x.strip())
-
-        self.exp_info_df = self.exp_info_df.set_index(exp_info_index_name)
-
-        # Open the file containing the analyzed trace
         self.exp_folder_name = exp_folder_name
-        os.chdir(self.exp_folder_name)
 
-        self.exp_data_frame = pd.read_csv(filepath_or_buffer=data_analyzed_file_name, delimiter=',', comment='#', header=0)
+        self.beam_rms_rad_to_load = beam_rms_rad_to_load
 
-        # Add a column of elapsed time since the start of the acquisition
-        self.exp_data_frame['Elapsed Time [s]'] = self.exp_data_frame['Time'].transform(lambda x: x-x[0])
+        if load_Q:
+            self.analysis_data_file_name_to_load = self.get_analysis_data_object_file_name(beam_rms_rad_to_load)
 
-        # There is additional space before [V] in the column below. Fixing it here
-        self.exp_data_frame = self.exp_data_frame.rename(columns={'Waveguide A Power Reading  [V]': 'Waveguide A Power Reading [V]'})
+            # Checking if the class instance has been saved before. If it was, then in case the user wants to load the data, it gets loaded. In all other cases the initialization continues.
 
-        # Get the data set parameters
-        self.exp_params_dict, self.comment_string_arr = get_experiment_params(data_analyzed_file_name)
+            self.perform_analysis_Q = False
 
-        # Adding additional parameters into the Dictionary
+            os.chdir(saving_folder_location)
+            os.chdir(self.exp_folder_name)
 
-        # Comments field from the info file of FOSOF data sets.
-        if exp_folder_name in self.exp_info_df.index:
-            self.exp_params_dict['Comments'] = self.exp_info_df.loc[exp_folder_name]['Comments']
-
-        # Acquisition start time given in UNIX format = UTC time
-        self.exp_params_dict['Experiment Start Time [s]'] = self.exp_data_frame['Time'].min()
-
-        # Acquisition duration [s]
-        self.exp_params_dict['Experiment Duration [s]'] = self.exp_data_frame['Elapsed Time [s]'].max()
-
-        # Series containing flags to determine what kind of data set has been acquired. It is possible for several flags to be True, however, not for all of the combinations of flags there exists analysis at the moment.
-        self.data_set_type_s = pd.Series(
-                    {'B Field Scan': False,
-                    'Pre-910 Switching': False,
-                    'Waveguide Carrier Frequency Sweep': False,
-                    'Offset Frequency Switching': False,
-                    'Charge Exchange Flow Rate Scan': False})
-
-        # Important experiment parameters
-        self.n_Bx_steps = self.exp_params_dict['Number of B_x Steps']
-        self.n_By_steps = self.exp_params_dict['Number of B_y Steps']
-        self.n_averages = self.exp_params_dict['Number of Averages']
-        self.sampling_rate = self.exp_params_dict['Digitizer Sampling Rate [S/s]']
-        self.n_digi_samples = self.exp_params_dict['Number of Digitizer Samples']
-        self.n_freq_steps = self.exp_params_dict['Number of Frequency Steps']
-        self.n_repeats = self.exp_params_dict['Number of Repeats']
-        self.digi_ch_range = self.exp_params_dict['Digitizer Channel Range [V]']
-        self.offset_freq_array = np.array(self.exp_params_dict['Offset Frequency [Hz]'])
-        self.pre_910_on_n_digi_samples = self.exp_params_dict['Pre-Quench 910 On Number of Digitizer Samples']
-
-        # Expected number of rows in the data file
-        self.rows_expected = self.n_repeats * self.n_freq_steps * len(self.offset_freq_array) * self.n_averages * 2
-
-        if self.n_freq_steps >= 1:
-            self.data_set_type_s['Waveguide Carrier Frequency Sweep'] = True
-
-        # B field values for different axes are assumed to be part of the same parameter: B field in such a way that when the B field along one axis is getting scanned, B field along another axis is set to 0. Thus the total number of B field scan steps is the sum of the scan steps along each axis.  When both the Bx and By are set to zero and are not getting scanned though, the B field parameter is not getting changed, thus the total number of B field steps is 1 (one).
-        if self.exp_params_dict['B_x Min [Gauss]'] == 0 and self.exp_params_dict['B_x Max [Gauss]'] == 0 and self.exp_params_dict['B_y Min [Gauss]'] == 0 and self.exp_params_dict['B_y Max [Gauss]'] == 0:
-            self.n_B_field_steps = 1
-
-        else:
-            self.data_set_type_s['B Field Scan'] = True
-            if self.n_Bx_steps == 1 and self.n_By_steps > 1:
-                self.n_B_field_steps = self.n_By_steps
-            if self.n_By_steps == 1 and self.n_Bx_steps > 1:
-                self.n_B_field_steps = self.n_Bx_steps
-            if self.n_Bx_steps > 1 and self.n_By_steps > 1:
-                self.n_B_field_steps = self.n_Bx_steps + self.n_By_steps
-
-        self.rows_expected = self.rows_expected * self.n_B_field_steps
-
-        if self.exp_params_dict['Pre-Quench 910 On/Off']:
-            self.data_set_type_s['Pre-910 Switching'] = True
-            self.rows_expected = self.rows_expected * 2
-
-        if 'Number of Mass Flow Rate Steps' in self.exp_params_dict:
-            self.data_set_type_s['Charge Exchange Flow Rate Scan'] = True
-            self.rows_expected = self.rows_expected * self.exp_params_dict['Number of Mass Flow Rate Steps']
-
-        if self.offset_freq_array.shape[0] > 1:
-            self.data_set_type_s['Offset Frequency Switching'] = True
-
-        self.data_set_type = None
-
-        if self.data_set_type_s['Waveguide Carrier Frequency Sweep'] == False:
-            print('There is no frequency scan for the data set. No analysis will be performed.')
-        else:
-            self.data_set_type_no_freq_s = self.data_set_type_s.drop(labels=['Waveguide Carrier Frequency Sweep', 'Charge Exchange Flow Rate Scan'])
-            if self.data_set_type_no_freq_s[self.data_set_type_no_freq_s==True].size > 1:
-                print('In addition to the Waveguide Carrier Frequency and Charge Exchange flow rate scan more than one parameter was scanned. The analysis will not be performed')
+            if os.path.isfile(self.analysis_data_file_name_to_load):
+                print('The analysis instance has been previously saved.')
+                print('Loading the analysis data...')
+                self.load_instance()
+                # Interesting effect here: if the data has been saved before with the perform_analysis_Q flag set to True, then after loading the data it sets is flag to True, making the analysis code believe that the analysis has not been performed before. That is why I have to set it to False here.
+                self.perform_analysis_Q = False
             else:
-                self.data_set_type = self.data_set_type_s[self.data_set_type_s==True].index.values[0]
+                print('No analysis instance of version ' + str(self.version_number) + ' has been found.')
+                self.perform_analysis_Q = True
+        else:
+            self.perform_analysis_Q = True
 
-        if self.exp_data_frame.shape[0] > self.rows_expected:
-            raise FosofAnalysisError("Number of rows in the analyzed data file is larger than the expected number of rows")
+        # The analysis gets performed if the perform_analysis_Q flag is True.
+        if self.perform_analysis_Q:
 
-        if self.exp_data_frame.shape[0] < self.rows_expected:
-            print('Seems that the data set has not been fully acquired/analyzed')
+            # Reading the csv table containing information about data sets.
+            os.chdir(saving_folder_location)
+            self.exp_info_df = pd.read_csv(filepath_or_buffer=exp_info_file_name, delimiter=',', comment='#', header=0, skip_blank_lines=True)
 
-        # Fourier harmonics of the offset frequency that are present in the data set. This list will be used throughout the analysis. Modify if needed.
-        self.harmonic_name_list = ['First Harmonic', 'Second Harmonic']
+            # Remove possible tabs and whitespaces from the end of the experiment folder names
+            self.exp_info_df[exp_info_index_name] = self.exp_info_df[exp_info_index_name].transform(lambda x: x.strip())
 
-        # The data set contains many columns. Some columns are related to each other by sharing one or several common properties. It is convenient to group these columns together. Each of the groups might have its unique structure for subsequent analysis. Thus it is inconvenient to have single data frame. Thus I now categorize the data set into several smaller subsets. Each subset corresponds to data for specific category. The categories at the moment are digitizers, quenching cavities, beam end faraday cup, and RF power in the waveguides.
+            self.exp_info_df = self.exp_info_df.set_index(exp_info_index_name)
 
-        # Each subset contains the same general index that depends on the type of the experiment.
-        # 'index' and 'Elapsed Time [s]' are position at the end of the list to make sure that the resulting multiindex can be sorted.
-        self.index_column_list = ['Repeat', 'Configuration', 'Average', 'Elapsed Time [s]']
+            # Open the file containing the analyzed traces
+            os.chdir(self.exp_folder_name)
 
-        if self.data_set_type_s['Waveguide Carrier Frequency Sweep']:
-            self.index_column_list.insert(self.index_column_list.index('Configuration'), 'Waveguide Carrier Frequency [MHz]')
+            self.exp_data_frame = pd.read_csv(filepath_or_buffer=data_analyzed_file_name, delimiter=',', comment='#', header=0)
 
-        if self.data_set_type_s['Offset Frequency Switching']:
-            self.index_column_list.insert(self.index_column_list.index('Configuration'), 'Offset Frequency [Hz]')
+            # Add a column of elapsed time since the start of the acquisition
+            self.exp_data_frame['Elapsed Time [s]'] = self.exp_data_frame['Time'].transform(lambda x: x-x[0])
 
-        if self.data_set_type_s['B Field Scan']:
-            if self.n_Bx_steps > 1:
-                self.b_field_column_name = 'B_x [Gauss]'
-                self.index_column_list.insert(self.index_column_list.index('Configuration'), self.b_field_column_name)
+            # There is additional space before [V] in the column below. Fixing it here
+            self.exp_data_frame = self.exp_data_frame.rename(columns={'Waveguide A Power Reading  [V]': 'Waveguide A Power Reading [V]'})
 
-            if self.n_By_steps > 1:
-                self.b_field_column_name = 'B_y [Gauss]'
-                self.index_column_list.insert(self.index_column_list.index('Configuration'), self.b_field_column_name)
+            # Get the data set parameters
+            self.exp_params_dict, self.comment_string_arr = get_experiment_params(data_analyzed_file_name)
 
-            # The analysis of the B field data for now is designed only for the B field along one axis to change. If the B field was changing along multiple axes during the data analysis, then analysis of the B field data cannot be performed.
+            # Adding additional parameters into the Dictionary
 
-            # Boolean to check whether the B field analysis is allowed or not.
-            self.b_field_analysis_allowed_Q = True
+            # Comments field from the info file of FOSOF data sets.
+            if exp_folder_name in self.exp_info_df.index:
+                self.exp_params_dict['Comments'] = self.exp_info_df.loc[exp_folder_name]['Comments']
 
-            if (self.n_Bx_steps > 1) and (self.n_By_steps > 1):
-                print('B field was changing along both x- and y-axes. The B field data analysis cannot be performed.')
-                self.b_field_analysis_allowed_Q = False
+            # Acquisition start time given in UNIX format = UTC time
+            self.exp_params_dict['Experiment Start Time [s]'] = self.exp_data_frame['Time'].min()
 
-        if self.data_set_type_s['Charge Exchange Flow Rate Scan']:
-            self.index_column_list.insert(self.index_column_list.index('Configuration'), 'Mass Flow Rate [sccm]')
+            # Acquisition duration [s]
+            self.exp_params_dict['Experiment Duration [s]'] = self.exp_data_frame['Elapsed Time [s]'].max()
 
-        if self.data_set_type_s['Pre-910 Switching']:
-            self.index_column_list.insert(self.index_column_list.index('Configuration'), 'Pre-Quench 910 State')
+            # Series containing flags to determine what kind of data set has been acquired. It is possible for several flags to be True, however, not for all of the combinations of flags there exists analysis at the moment.
+            self.data_set_type_s = pd.Series(
+                        {'B Field Scan': False,
+                        'Pre-910 Switching': False,
+                        'Waveguide Carrier Frequency Sweep': False,
+                        'Offset Frequency Switching': False,
+                        'Charge Exchange Flow Rate Scan': False})
+
+            # Important experiment parameters
+            self.n_Bx_steps = self.exp_params_dict['Number of B_x Steps']
+            self.n_By_steps = self.exp_params_dict['Number of B_y Steps']
+            self.n_averages = self.exp_params_dict['Number of Averages']
+            self.sampling_rate = self.exp_params_dict['Digitizer Sampling Rate [S/s]']
+            self.n_digi_samples = self.exp_params_dict['Number of Digitizer Samples']
+            self.n_freq_steps = self.exp_params_dict['Number of Frequency Steps']
+            self.n_repeats = self.exp_params_dict['Number of Repeats']
+            self.digi_ch_range = self.exp_params_dict['Digitizer Channel Range [V]']
+            self.offset_freq_array = np.array(self.exp_params_dict['Offset Frequency [Hz]'])
+            self.pre_910_on_n_digi_samples = self.exp_params_dict['Pre-Quench 910 On Number of Digitizer Samples']
+
+            # Expected number of rows in the data file
+            self.rows_expected = self.n_repeats * self.n_freq_steps * len(self.offset_freq_array) * self.n_averages * 2
+
+            if self.n_freq_steps >= 1:
+                self.data_set_type_s['Waveguide Carrier Frequency Sweep'] = True
+
+            # B field values for different axes are assumed to be part of the same parameter: B field in such a way that when the B field along one axis is getting scanned, B field along another axis is set to 0. Thus the total number of B field scan steps is the sum of the scan steps along each axis.  When both the Bx and By are set to zero and are not getting scanned though, the B field parameter is not getting changed, thus the total number of B field steps is 1 (one).
+            if self.exp_params_dict['B_x Min [Gauss]'] == 0 and self.exp_params_dict['B_x Max [Gauss]'] == 0 and self.exp_params_dict['B_y Min [Gauss]'] == 0 and self.exp_params_dict['B_y Max [Gauss]'] == 0:
+                self.n_B_field_steps = 1
+
+            else:
+                self.data_set_type_s['B Field Scan'] = True
+                if self.n_Bx_steps == 1 and self.n_By_steps > 1:
+                    self.n_B_field_steps = self.n_By_steps
+                if self.n_By_steps == 1 and self.n_Bx_steps > 1:
+                    self.n_B_field_steps = self.n_Bx_steps
+                if self.n_Bx_steps > 1 and self.n_By_steps > 1:
+                    self.n_B_field_steps = self.n_Bx_steps + self.n_By_steps
+
+            self.rows_expected = self.rows_expected * self.n_B_field_steps
+
+            if self.exp_params_dict['Pre-Quench 910 On/Off']:
+                self.data_set_type_s['Pre-910 Switching'] = True
+                self.rows_expected = self.rows_expected * 2
+
+            if 'Number of Mass Flow Rate Steps' in self.exp_params_dict:
+                self.data_set_type_s['Charge Exchange Flow Rate Scan'] = True
+                self.rows_expected = self.rows_expected * self.exp_params_dict['Number of Mass Flow Rate Steps']
+
+            if self.offset_freq_array.shape[0] > 1:
+                self.data_set_type_s['Offset Frequency Switching'] = True
+
+            self.data_set_type = None
+
+            if self.data_set_type_s['Waveguide Carrier Frequency Sweep'] == False:
+                print('There is no frequency scan for the data set. No analysis will be performed.')
+            else:
+                self.data_set_type_no_freq_s = self.data_set_type_s.drop(labels=['Waveguide Carrier Frequency Sweep', 'Charge Exchange Flow Rate Scan'])
+                if self.data_set_type_no_freq_s[self.data_set_type_no_freq_s==True].size > 1:
+                    print('In addition to the Waveguide Carrier Frequency and Charge Exchange flow rate scan more than one parameter was scanned. The analysis will not be performed')
+                else:
+                    self.data_set_type = self.data_set_type_s[self.data_set_type_s==True].index.values[0]
+
+            if self.exp_data_frame.shape[0] > self.rows_expected:
+                raise FosofAnalysisError("Number of rows in the analyzed data file is larger than the expected number of rows")
+
+            if self.exp_data_frame.shape[0] < self.rows_expected:
+                print('Seems that the data set has not been fully acquired/analyzed')
+
+            # Fourier harmonics of the offset frequency that are present in the data set. This list will be used throughout the analysis. Modify if needed.
+            self.harmonic_name_list = ['First Harmonic', 'Second Harmonic']
+
+            # The data set contains many columns. Some columns are related to each other by sharing one or several common properties. It is convenient to group these columns together. Each of the groups might have its unique structure for subsequent analysis. Thus it is inconvenient to have single data frame. Thus I now categorize the data set into several smaller subsets. Each subset corresponds to data for specific category. The categories at the moment are digitizers, quenching cavities, beam end faraday cup, and RF power in the waveguides.
+
+            # Each subset contains the same general index that depends on the type of the experiment.
+            # 'index' and 'Elapsed Time [s]' are position at the end of the list to make sure that the resulting multiindex can be sorted.
+            self.index_column_list = ['Repeat', 'Configuration', 'Average', 'Elapsed Time [s]']
+
+            if self.data_set_type_s['Waveguide Carrier Frequency Sweep']:
+                self.index_column_list.insert(self.index_column_list.index('Configuration'), 'Waveguide Carrier Frequency [MHz]')
+
+            if self.data_set_type_s['Offset Frequency Switching']:
+                self.index_column_list.insert(self.index_column_list.index('Configuration'), 'Offset Frequency [Hz]')
+
+            if self.data_set_type_s['B Field Scan']:
+                if self.n_Bx_steps > 1:
+                    self.b_field_column_name = 'B_x [Gauss]'
+                    self.index_column_list.insert(self.index_column_list.index('Configuration'), self.b_field_column_name)
+
+                if self.n_By_steps > 1:
+                    self.b_field_column_name = 'B_y [Gauss]'
+                    self.index_column_list.insert(self.index_column_list.index('Configuration'), self.b_field_column_name)
+
+                # The analysis of the B field data for now is designed only for the B field along one axis to change. If the B field was changing along multiple axes during the data analysis, then analysis of the B field data cannot be performed.
+
+                # Boolean to check whether the B field analysis is allowed or not.
+                self.b_field_analysis_allowed_Q = True
+
+                if (self.n_Bx_steps > 1) and (self.n_By_steps > 1):
+                    print('B field was changing along both x- and y-axes. The B field data analysis cannot be performed.')
+                    self.b_field_analysis_allowed_Q = False
+
+            if self.data_set_type_s['Charge Exchange Flow Rate Scan']:
+                self.index_column_list.insert(self.index_column_list.index('Configuration'), 'Mass Flow Rate [sccm]')
+
+            if self.data_set_type_s['Pre-910 Switching']:
+                self.index_column_list.insert(self.index_column_list.index('Configuration'), 'Pre-Quench 910 State')
 
 
-        # Add experiment type into the experiment parameters Dictionary
-        self.exp_params_dict['Experiment Type'] = self.data_set_type
+            # Add experiment type into the experiment parameters Dictionary
+            self.exp_params_dict['Experiment Type'] = self.data_set_type
 
-        # Create pd.Series containing all of the experiment parameters.
-        self.exp_params_s = pd.Series(self.exp_params_dict)
+            # Create pd.Series containing all of the experiment parameters.
+            self.exp_params_s = pd.Series(self.exp_params_dict)
 
-        # Changing the index columns of the data dataframe
-        self.exp_data_frame.set_index(self.index_column_list, inplace=True)
-        # Index used for the pd.DataFrame objects. It contains names of all of the parameters that were varied (intentionally) during the acquisition process.
-        self.general_index = self.exp_data_frame.index
-        # Renaming 'index' name to 'Index' for enforcing first letter = capital letter rule
-        #self.general_index.set_names('Index',level=list(self.general_index.names).index('index'), inplace=True)
+            # Some earlier data sets did not have the accelerating voltage recorded. They were all acquired at 49.86 kV.
+            if 'Accelerating Voltage [kV]' not in list(self.exp_params_s.keys()):
+                self.exp_params_s['Accelerating Voltage [kV]'] = 49.86
 
-        # Defining variables that the data analysis functions will assign the analyzed data to. These are needed so that whenever we want to call the function again, the analysis does not have to be redone. Also, most of the functions use data obtained from other function calls. We want to make it automatic for the function that needs other variables to call required functions. If the function has been called before we do not have to again wait for these functions to needlessly rerun the analysis.
+            # If data is available from the external source, record the Proton Deflector measured voltage for the data set
 
-        # Beam-end faraday cup dataframe
-        self.beam_end_dc_df = None
-        # Quenching cavities dataframe
-        self.quenching_cavities_df = None
-        # RF power detector data (with analysis) for both RF systems (A and B)
-        self.rf_system_power_df = None
+            if self.exp_folder_name in list(exp_pd_volt_df.index.values):
 
-        # Dataframe for the data from the digitizers
-        self.digitizers_data_df = None
-        # Phase difference between the RF Combiners DataFrame
-        self.combiner_difference_df = None
+                self.exp_params_s[pd_volt_col_name] = exp_pd_volt_df.loc[self.exp_folder_name][pd_volt_col_name]
 
-        # Dataframe of delays between the digitizers
-        self.digi_2_from_digi_1_delay_df = None
-        self.digi_2_from_digi_1_mean_delay_df = None
+            # Changing the index columns of the data dataframe
+            self.exp_data_frame.set_index(self.index_column_list, inplace=True)
+            # Index used for the pd.DataFrame objects. It contains names of all of the parameters that were varied (intentionally) during the acquisition process.
+            self.general_index = self.exp_data_frame.index
+            # Renaming 'index' name to 'Index' for enforcing first letter = capital letter rule
+            #self.general_index.set_names('Index',level=list(self.general_index.names).index('index'), inplace=True)
 
-        # Detector FOSOF phasors dataframe relative to RF combiners. Most important data.
-        self.phase_diff_data_df = None
-        # FOSOF phasors averaged across all averaging sets using different types of averaging technique
-        self.phase_av_set_averaged_df = None
-        # FOSOF phases with subtracted out frequency response at the offset frequency
-        self.phase_A_minus_B_df = None
-        # FOSOF data (amplitude and phase) averaged across the repeats. This is final analyzed data set that is used for combining it with the same FOSOF data set with the same parameters but different configuration
-        self.fosof_ampl_df = None
-        self.fosof_phases_df = None
+            # Defining variables that the data analysis functions will assign the analyzed data to. These are needed so that whenever we want to call the function again, the analysis does not have to be redone. Also, most of the functions use data obtained from other function calls. We want to make it automatic for the function that needs other variables to call required functions. If the function has been called before we do not have to again wait for these functions to needlessly rerun the analysis.
 
-        # pd.DataFrame object for storing any errors/warnings in the analysis. This file gets later saved along with the rest of the analysis data.
-        self.err_warn_df = pd.DataFrame()
-        self.err_warn_df.index.name = 'Warning/Error Name'
+            # Beam-end faraday cup dataframe
+            self.beam_end_dc_df = None
+            # Quenching cavities dataframe
+            self.quenching_cavities_df = None
+            # RF power detector data (with analysis) for both RF systems (A and B)
+            self.rf_system_power_df = None
 
-        # B field scan analysis data
-        if self.data_set_type_s['B Field Scan'] and self.b_field_analysis_allowed_Q:
-            self.fosof_av_phase_B_field_df = None
+            # Dataframe for the data from the digitizers
+            self.digitizers_data_df = None
+            # Phase difference between the RF Combiners DataFrame
+            self.combiner_difference_df = None
 
-        if load_data_Q:
-            self.load_saved_data()
+            # Dataframe of delays between the digitizers
+            self.digi_2_from_digi_1_delay_df = None
+            self.digi_2_from_digi_1_mean_delay_df = None
+
+            # Detector FOSOF phasors dataframe relative to RF combiners. Most important data.
+            self.phase_diff_data_df = None
+            # FOSOF phasors averaged across all averaging sets using different types of averaging technique
+            self.phase_av_set_averaged_df = None
+            # FOSOF phases with subtracted out frequency response at the offset frequency
+            self.phase_A_minus_B_df = None
+            # FOSOF data (amplitude and phase) averaged across the repeats. This is final analyzed data set that is used for combining it with the same FOSOF data set with the same parameters but different configuration
+            self.fosof_ampl_df = None
+            self.fosof_phases_df = None
+
+            # pd.DataFrame for storing determine E field values using the appropriate waveguide calibration file
+            self.avg_e_field_df = None
+
+            # Flag for whether the FOSOF phases were corrected for the improper wavegude power or not
+            self.wvg_pwr_fosof_correc_Q = False
+
+            # RMS radius of the beam assumed for the FOSOF simulations used to correct the FOSOF phases for imperfect RF power. When is set to NONE, it means that no correction has been applied to the data.
+            self.beam_rms_rad = None
+
+            # Boolean for whether the phase difference data has been filtered for RF power measurements' outliers, when these outliers correspond exactly to very low FOSOF signal SNR at the offset frequency. This variable is needed for the correction of the FOSOF phases due to imperfect waveguide power.
+            self.phase_diff_data_filtered_Q = False
+
+            # pd.DataFrame object for storing any errors/warnings in the analysis. This file gets later saved along with the rest of the analysis data.
+            self.err_warn_df = pd.DataFrame()
+            self.err_warn_df.index.name = 'Warning/Error Name'
+
+            # B field scan analysis data
+            if self.data_set_type_s['B Field Scan'] and self.b_field_analysis_allowed_Q:
+                self.fosof_av_phase_B_field_df = None
+
+    def get_analysis_data_object_file_name(self, beam_rms_rad):
+        ''' Get name of the analysed data object
+        '''
+        if beam_rms_rad is None:
+            analysis_data_file_name = 'r' + 'NA' + 'v' + str(self.version_number) + '.pckl'
+        else:
+            analysis_data_file_name = 'r' + str(beam_rms_rad) + 'v' + str(self.version_number) + '.pckl'
+        return analysis_data_file_name
 
     def get_exp_parameters(self):
         ''' Simply returns the pd.Series with the experiment parameters.
@@ -309,68 +395,116 @@ class DataSetFOSOF():
         return self.quenching_cavities_df
 
     def get_rf_sys_pwr_det_data(self):
-        ''' Obtain data for RF power detectors.
+        ''' Obtain data for RF power detectors. Also returns the outliers in the RF power detector readings. The outliers can be used to filter the FOSOF phases.
         '''
-        # Notice that here I am not allowing for bypassing the whole function, if the function has been called for before. The reason for this is the ax object for storing the plot of the RF power detector calibration.
 
-        # Data from the RF Power detectors for each RF system (A and B).
-        rf_system_power_df = self.exp_data_frame[['Waveguide A Power Reading [V]','Waveguide B Power Reading [V]']]
+        if self.rf_system_power_df is None:
 
-        # Restructure the dataframe a bit
-        rf_system_power_df = add_level_data_frame(rf_system_power_df, 'RF System', ['Waveguide A', 'Waveguide B']).rename(columns={'Waveguide A': 'RF System A', 'Waveguide B': 'RF System B'}).rename(columns={'Power Reading [V]': 'RF Power Detector Reading [V]'}, level=1).sort_index(level='Elapsed Time [s]')
+            # Notice that here I am not allowing for bypassing the whole function, if the function has been called for before. The reason for this is the ax object for storing the plot of the RF power detector calibration.
 
-        rf_system_power_df.columns.names = ['RF System', 'Data Field']
+            # Data from the RF Power detectors for each RF system (A and B).
+            rf_system_power_df = self.exp_data_frame[['Waveguide A Power Reading [V]','Waveguide B Power Reading [V]']]
 
-        # It is possible to get positive voltage values as the reading on the power detectors (I have encountered this), which can only, in principle, output numbers that are negative or zero. The reason for this is unknown: possibly the multimeter that reads the voltage from the power detector might give erroneous readings from time to time. In any case, these positive readings are discarded. The indeces corresponding to these get also recorded in the errors/warnings file later on.
+            # Restructure the dataframe a bit
+            rf_system_power_df = add_level_data_frame(rf_system_power_df, 'RF System', ['Waveguide A', 'Waveguide B']).rename(columns={'Waveguide A': 'RF System A', 'Waveguide B': 'RF System B'}).rename(columns={'Power Reading [V]': 'RF Power Detector Reading [V]'}, level=1).sort_index(level='Elapsed Time [s]')
 
-        rf_pow_det_faulty_df = rf_system_power_df[(rf_system_power_df['RF System A', 'RF Power Detector Reading [V]'] > 0) | (rf_system_power_df['RF System B', 'RF Power Detector Reading [V]'] > 0)]
+            rf_system_power_df.columns.names = ['RF System', 'Data Field']
 
-        if rf_pow_det_faulty_df.shape[0] > 0:
-            rf_system_power_df = rf_system_power_df.drop(rf_pow_det_faulty_df.index.values)
+            # It is possible to get positive voltage values as the reading on the power detectors (I have encountered this), which can only, in principle, output numbers that are negative or zero. The reason for this is unknown: possibly the multimeter that reads the voltage from the power detector might give erroneous readings from time to time. In any case, these positive readings are discarded from the rf_syste_power_df, but not from the data set itself. If I do not discard them, then it gives me issue with the conversion of the voltages to RF power. The indeces corresponding to these get also recorded.
 
-            rf_pow_det_faulty_index_arr = rf_pow_det_faulty_df.index.values
+            rf_pow_det_faulty_df = rf_system_power_df[(rf_system_power_df['RF System A', 'RF Power Detector Reading [V]'] > 0) | (rf_system_power_df['RF System B', 'RF Power Detector Reading [V]'] > 0)]
 
-            warning_mssg = 'WARNING! Positive KRYTAR 109B voltages detected! These readings are discarded from the list of RF power detector readings. Notice, that they are not removed from the overall experiment data. Indeces corresponding to these positive readings: '+str(rf_pow_det_faulty_index_arr)
+            # Dataframe to store the outliers in the power detector data.
+            rf_system_power_outlier_df = rf_pow_det_faulty_df
 
-            # Store the warning in the errors/warnings log
-            self.err_warn_df = self.err_warn_df.append(pd.Series({'Message': warning_mssg}, name='Positive KRYTAR 109B Voltage'))
-            print(warning_mssg)
+            if rf_pow_det_faulty_df.shape[0] > 0:
+                rf_system_power_df = rf_system_power_df.drop(rf_pow_det_faulty_df.index)
+
+                warning_mssg = 'WARNING! Positive KRYTAR 109B voltages detected! These readings are discarded from the list of RF power detector readings. Notice, that they are not removed from the overall experiment data, but only from the dataframe of the RF power readings. Indeces corresponding to these positive readings:\n'+str(rf_pow_det_faulty_df.index.values)
+
+                # Store the warning in the errors/warnings log
+                self.err_warn_df = self.err_warn_df.append(pd.Series({'Message': warning_mssg}, name='Positive KRYTAR 109B Voltage'))
+                print(warning_mssg)
 
 
-        # Get the RF power calibration
-        self.wvg_pwr_det_calib = KRYTAR109BCalibration()
-        self.wvg_pwr_det_calib.get_calib_curve()
+            # Get the RF power calibration
+            self.wvg_pwr_det_calib = KRYTAR109BCalibration()
+            self.wvg_pwr_det_calib.get_calib_curve()
 
-        # Convert Detector Voltages to RF power in dBm. We use only the first element of the conversion function output. The second element is the uncertainty in the RF power.
-        rf_system_power_df = rf_system_power_df.join(rf_system_power_df.transform(lambda x: self.wvg_pwr_det_calib.get_RF_power_dBm_from_voltage(x)[:,0]).rename(columns={'RF Power Detector Reading [V]':'Detected RF Power [dBm]'}, level='Data Field')).sort_index(axis='columns')
+            # Convert Detector Voltages to RF power in dBm. We use only the first element of the conversion function output. The second element is the uncertainty in the RF power.
+            rf_system_power_df = rf_system_power_df.join(rf_system_power_df.transform(lambda x: self.wvg_pwr_det_calib.get_RF_power_dBm_from_voltage(x)[:,0]).rename(columns={'RF Power Detector Reading [V]':'Detected RF Power [dBm]'}, level='Data Field')).sort_index(axis='columns')
 
-        # Convert dBm to mW
-        rf_system_power_df = rf_system_power_df.join(rf_system_power_df.loc[slice(None), (slice(None), ['Detected RF Power [dBm]'])].transform(lambda x: 10**(x/10)).rename(columns={'Detected RF Power [dBm]':'Detected RF Power [mW]'}, level='Data Field')).sort_index(axis='columns')
+            # Convert dBm to mW
+            rf_system_power_df = rf_system_power_df.join(rf_system_power_df.loc[slice(None), (slice(None), ['Detected RF Power [dBm]'])].transform(lambda x: 10**(x/10)).rename(columns={'Detected RF Power [dBm]':'Detected RF Power [mW]'}, level='Data Field')).sort_index(axis='columns')
 
-        # We now want to see by how much the power in each system has changed/drifted while acquiring data. The field with power in dBm is not needed for this calculation
+            # We now want to see by how much the power in each system has changed/drifted while acquiring data. The field with power in dBm is not needed for this calculation
 
-        # We first select data that corresponds to the first repeat only. Then we select only first occurences (in time) of each RF frequency.
-        rf_system_power_repeat_1 = rf_system_power_df.loc[slice(None),(slice(None), ['Detected RF Power [mW]', 'RF Power Detector Reading [V]'])].reset_index().set_index('Elapsed Time [s]').sort_index()
+            # We first select data that corresponds to the first repeat only. Then we select only first occurences (in time) of each RF frequency.
+            rf_system_power_repeat_1 = rf_system_power_df.loc[slice(None),(slice(None), ['Detected RF Power [mW]', 'RF Power Detector Reading [V]'])].reset_index().set_index('Elapsed Time [s]').sort_index()
 
-        rf_system_power_initial_df = rf_system_power_repeat_1.loc[rf_system_power_repeat_1[rf_system_power_repeat_1['Repeat'] == 1]['Waveguide Carrier Frequency [MHz]'].sort_index().drop_duplicates(keep='first').sort_index().index]
+            rf_system_power_initial_df = rf_system_power_repeat_1.loc[rf_system_power_repeat_1[rf_system_power_repeat_1['Repeat'] == 1]['Waveguide Carrier Frequency [MHz]'].sort_index().drop_duplicates(keep='first').sort_index().index]
 
-        # We need to remove all other index levels, except that of the 'Waveguide Carrier Frequency [MHz]'.
+            # We need to remove all other index levels, except that of the 'Waveguide Carrier Frequency [MHz]'.
 
-        rf_system_power_initial_column_list = list(self.general_index.names)
-        rf_system_power_initial_column_list.remove('Waveguide Carrier Frequency [MHz]')
+            rf_system_power_initial_column_list = list(self.general_index.names)
+            rf_system_power_initial_column_list.remove('Waveguide Carrier Frequency [MHz]')
 
-        rf_system_power_initial_df = rf_system_power_initial_df.reset_index().set_index('Waveguide Carrier Frequency [MHz]').sort_index().drop(columns=rf_system_power_initial_column_list, level='RF System')
+            rf_system_power_initial_df = rf_system_power_initial_df.reset_index().set_index('Waveguide Carrier Frequency [MHz]').sort_index().drop(columns=rf_system_power_initial_column_list, level='RF System')
 
-        # We now calculate the fractional change in the RF power detector voltage and detector power given in parts per thousand [ppt]
+            # We now calculate the fractional change in the RF power detector voltage and detector power given in parts per thousand [ppt]
 
-        rf_system_power_fract_change_df = (rf_system_power_df.loc[slice(None),(slice(None), ['Detected RF Power [mW]', 'RF Power Detector Reading [V]'])].reset_index().set_index(list(self.general_index.names)) - rf_system_power_initial_df)/rf_system_power_initial_df * 1E3
+            rf_system_power_fract_change_df = (rf_system_power_df.loc[slice(None),(slice(None), ['Detected RF Power [mW]', 'RF Power Detector Reading [V]'])].reset_index().set_index(list(self.general_index.names)) - rf_system_power_initial_df)/rf_system_power_initial_df * 1E3
 
-        # Renaming columns and joining with the main rf power dataframe.
-        rf_system_power_df = rf_system_power_df.join(rf_system_power_fract_change_df.rename(columns={'Detected RF Power [mW]': 'Fractional Change In RF Power [ppt]', 'RF Power Detector Reading [V]': 'Fractional Change In RF Detector Voltage [ppt]'}, level='Data Field')).sort_index(axis='columns')
+            # Renaming columns and joining with the main rf power dataframe.
+            rf_system_power_df = rf_system_power_df.join(rf_system_power_fract_change_df.rename(columns={'Detected RF Power [mW]': 'Fractional Change In RF Power [ppt]', 'RF Power Detector Reading [V]': 'Fractional Change In RF Detector Voltage [ppt]'}, level='Data Field')).sort_index(axis='columns')
 
-        self.rf_system_power_df = rf_system_power_df
+            ''' In addition to a possibility of having positive RF power detector voltages, due to some glitch/malfunction in the Keithley logger for recording the measurements or the RF power detector(s), it is also possible to have sometimes values that are negative, but very close to zero, as seen in '180506-123908 - FOSOF Acquisition - 0 config, 14 V per cm, PD ON 120 V,  914-918 MHz'. For this particular data set the index values corresponding to these RF power detector voltage readings also matched with the case when SNR for the first harmonic was NAN. Thus is seems that in this case this was the real effect - maybe RF generator somehow did not supply properly for these index labels. But mainly the reason for being able to see this, was that when trying to find the corresponding E field, I got NAN values for these, which later on gave me an error. In any case, I decided that I need to make sure to detect any obvious outliers in the RF power detector readings. I tried finding the average for each RF System (A or B) and then by how many standard deviation each value was off from the mean (tried to do the same for each averaging set, but there are not enough points to detect an outlier with this method), but it did not give me good results. Later, using histograms, I realized that for that same data set, the RF power detector voltages are peaked around 2 values + a tiny third peak = outliers. This gave me the realization that it is possible for the different RF frequencies to have quite different RF power detector voltages, in general. Thus I should look at the fractional deviation in RF power detector voltages, given for each RF frequency separately, where the deviation is w.r.t. the first occurence of RF power detector reading at the particular frequency (in time). This way I expect to have the values peaking about the same number + some small outliers.
 
-        return self.rf_system_power_df
+            Later on while analyzing data for the data set '180327-122234 - FOSOF Acquisition - pi config, 5 V per cm PD ON 120 V' I had one outlier, but it actually had the Fractional Change in RF Power Detector Voltage of only -3 ppt. It was that other values were much smaller. To make sure that these cases will not be counter as the outliers, I added an additional condition that the absolute difference between the mean and the given value needs to be larger than certain maximum allowed ppt.
+            '''
+            # Maximum allowed deviation in the multiples of the standard deviation.
+            max_dev_std_mult = 10
+
+            # In addition to the maximum multiple of stadard deviations, the absolute difference of the outlier and the mean needs to be larger than the specified amount in ppt.
+            max_ppt = 10
+
+            # RF System A outliers
+            mean_val = np.mean(rf_system_power_df.loc[slice(None), ('RF System A', 'Fractional Change In RF Detector Voltage [ppt]')])
+            std_val = np.std(rf_system_power_df.loc[slice(None), ('RF System A', 'Fractional Change In RF Detector Voltage [ppt]')])
+
+            rf_sys_A_diff_df = np.abs(rf_system_power_df.loc[slice(None), ('RF System A', ['Fractional Change In RF Detector Voltage [ppt]'])] - mean_val)
+
+            rf_sys_A_outlier_df = rf_sys_A_diff_df / std_val
+            rf_sys_A_outlier_df = rf_sys_A_outlier_df[(rf_sys_A_outlier_df['RF System A', 'Fractional Change In RF Detector Voltage [ppt]'] > max_dev_std_mult) & (rf_sys_A_diff_df['RF System A', 'Fractional Change In RF Detector Voltage [ppt]'] > max_ppt)]
+
+            # RF System B outliers
+            mean_val = np.mean(rf_system_power_df.loc[slice(None), ('RF System B', 'Fractional Change In RF Detector Voltage [ppt]')])
+            std_val = np.std(rf_system_power_df.loc[slice(None), ('RF System B', 'Fractional Change In RF Detector Voltage [ppt]')])
+
+            rf_sys_B_diff_df = np.abs(rf_system_power_df.loc[slice(None), ('RF System B', ['Fractional Change In RF Detector Voltage [ppt]'])] - mean_val)
+
+            rf_sys_B_outlier_df = rf_sys_B_diff_df / std_val
+            rf_sys_B_outlier_df = rf_sys_B_outlier_df[(rf_sys_B_outlier_df['RF System B', 'Fractional Change In RF Detector Voltage [ppt]'] > max_dev_std_mult) & (rf_sys_B_diff_df['RF System B', 'Fractional Change In RF Detector Voltage [ppt]'] > max_ppt)]
+
+            # Index corresponding to the outliers
+            rf_pow_outlier_index = rf_sys_A_outlier_df.index.union(rf_sys_B_outlier_df.index)
+
+            rf_system_power_outlier_df = rf_system_power_outlier_df.append(rf_system_power_df.loc[rf_pow_outlier_index])
+
+            if rf_pow_outlier_index.shape[0] > 0:
+
+                rf_system_power_df = rf_system_power_df.drop(rf_pow_outlier_index)
+
+                warning_mssg = 'WARNING! Negative outliers in the KRYTAR 109B voltages were detected! These readings are discarded from the list of RF power detector readings. Notice, that they are not removed from the overall experiment data, but only from the dataframe of the RF power readings. Indeces corresponding to these outlying readings:\n'+str(rf_pow_outlier_index.values)
+
+                # Store the warning in the errors/warnings log
+                self.err_warn_df = self.err_warn_df.append(pd.Series({'Message': warning_mssg}, name='Negative outliers in the KRYTAR 109B readings'))
+                print(warning_mssg)
+
+            self.rf_system_power_outlier_df = rf_system_power_outlier_df
+            self.rf_system_power_df = rf_system_power_df
+
+        return self.rf_system_power_df, self.rf_system_power_outlier_df
 
     def get_digitizers_data(self):
         ''' Main data containing the extracted data from the digitizers.
@@ -581,7 +715,7 @@ class DataSetFOSOF():
         return self.digi_2_from_digi_1_mean_delay_df
 
     def get_phase_diff_data(self):
-        ''' Main FOSOF data frame. Here we calculate Detector phases relative to various phase references.
+        ''' Main FOSOF data frame. Here we calculate Detector phases relative to various phase references and also perform the filtering on the phase difference data, by checking whether there are any very low SNR values at the offset frequency represented by NaN.
         '''
 
         if self.phase_diff_data_df is None:
@@ -608,7 +742,52 @@ class DataSetFOSOF():
             # We dropped the "Trace Filename" column, however, for some reason it is still contained in the index of columns. This function gets rid of it.
             phase_diff_data_df.columns = phase_diff_data_df.columns.remove_unused_levels()
 
+            ''' We now look for any Detector traces with undefined = very low SNR at the offset frequency, and then determines the action depending on the presence of any previously detected RF power measurement outliers for both the RF system A and B. If no issues are found, then no actions are taken.
+            '''
+            snr_null_df = phase_diff_data_df.loc[phase_diff_data_df.loc[slice(None), ('RF Combiner I Reference', 'First Harmonic', 'SNR')].isnull()]
+
+            rf_pow_df, rf_system_power_outlier_df = self.get_rf_sys_pwr_det_data()
+
+            if snr_null_df.shape[0] > 0:
+
+                warning_mssg = 'WARNING!!! Traces with unacceptably low SNR are present. Indeces corresponding to these outlying readings:\n'+str(snr_null_df.index.values) + '\n'
+
+                rf_pwr_outlier_and_snr_null_diff_index = rf_system_power_outlier_df.index.difference(snr_null_df.index)
+
+                if rf_pwr_outlier_and_snr_null_diff_index.shape[0] == 0:
+
+                    if rf_system_power_outlier_df.index.shape[0] == snr_null_df.index.shape[0]:
+
+                        warning_mssg = warning_mssg + 'These traces match with the traces that have outlying RF power detector readings. Therefore the very low SNR can be explained by the RF generator not supplying the requested amount of power. These indeces are removed from the dataframe containing phase differences.'
+
+                        phase_diff_data_df = phase_diff_data_df.drop(rf_system_power_outlier_df.index)
+                        self.phase_diff_data_filtered_Q = True
+
+                    else:
+
+                        if rf_system_power_outlier_df.index.shape[0] == 0:
+                            warning_mssg = warning_mssg + '\nPossibly for some traces the noise in the signal was too large during the data acqusition. There is no compelling reason to remove these indeces from the dataframe containing phase differences, except that Phase Averaging will not work properly.'
+
+                        else:
+                            warning_mssg = warning_mssg + 'There seems to be something wrong with the data acquisition. For some traces we might have an unlikely combination of large signal noise, RF generator not outputting correct power, or Keithley multimeter not functioning well. One needs to closely examine the data set.'
+
+                else:
+                    warning_mssg = warning_mssg + 'There seems to be something wrong with the data acquisition. For some traces we might have an unlikely combination of large signal noise, RF generator not outputting correct power, or Keithley multimeter not functioning well. One needs to closely examine the data set.'
+
+                self.err_warn_df = self.err_warn_df.append(pd.Series({'Message': warning_mssg}, name='Low SNR'))
+
+                print(warning_mssg)
+
+            else:
+                if rf_system_power_outlier_df.index.shape[0] > 0:
+                    warning_mssg = "The SNR is high enough for all of the traces, but there are some outliers in the RF power detectors' readings. Most likely there was some issue with the RF power measuring equipment: multimeter, RF power detectors, interconnections, etc."
+
+                    self.err_warn_df = self.err_warn_df.append(pd.Series({'Message': warning_mssg}, name='Good SNR with RF power measurement outliers.'))
+
+                    print(warning_mssg)
+
             self.phase_diff_data_df = phase_diff_data_df
+
         return self.phase_diff_data_df
 
     def average_av_sets(self):
@@ -1325,222 +1504,318 @@ class DataSetFOSOF():
 
         return self.fosof_av_phase_B_field_df
 
-    def save_analysis_data(self):
-        ''' Calling this function saves all of the analysis data. Types of data saved will, of course, depend on the experiment type. If the data has been previously saved, the call to this function overwrites previously written files with the same file names.
+    def get_rf_pwr_calib_folder_name(self):
+        # Time zone of where the data was acquired. This is needed to properly convert the UNIX time
+        eastern_tz = pytz.timezone('US/Eastern')
 
-        If the required function for certain types of data to save has not be called before, then it gets called here.
+        exp_start_datetime = datetime.datetime.fromtimestamp(self.get_exp_parameters()['Experiment Start Time [s]'], tz=eastern_tz)
+
+        # Converting back to the string and then converting to the pandas datetime object. This is needed to remove any location information from datetime object, so that I can compare the times in the calibration info file with this converted time object.
+
+        exp_start_datetime = pd.to_datetime(pd.to_datetime(exp_start_datetime.strftime("%Y-%m-%d %H:%M:%S")))
+
+        calibration_s = wvg_calib_info_df[(wvg_calib_info_df['Start Date'] < exp_start_datetime) & (wvg_calib_info_df['End Date'] > exp_start_datetime)].iloc[0]
+
+        calibration_folder_name = calibration_s['Calibration Folder Name']
+        analysis_data_file_name = calibration_s['Calibration File Name']
+
+        return calibration_folder_name, analysis_data_file_name
+
+    def calc_wvg_E_field(self):
+        ''' Determines average of the RF powers inside the waveguides corresponding to each RF power sensor reading
+
+        Read comments in the method's code for additional details
         '''
+        if self.avg_e_field_df is None:
+            # Determine waveguide power calibration analysis folder and analysis file name that corresponds to this particular data set
+            calibration_folder_name, analysis_data_file_name = self.get_rf_pwr_calib_folder_name()
 
-        print('Performing data analysis...')
-        self.get_fc_data()
-        self.get_quenching_cav_data()
-        self.get_rf_sys_pwr_det_data()
-        self.get_digitizers_data()
-        self.get_combiners_phase_diff_data()
-        self.get_inter_digi_delay_data()
-        self.get_phase_diff_data()
-        self.average_av_sets()
-        self.cancel_out_freq_response()
-        self.average_FOSOF_over_repeats()
+            # Load the respective waveguide power calibration analysis. It is assumed that the analysis has been performed before.
+            wvg_calib_analysis = wvg_power_calib_analysis.WaveguideCalibrationAnalysis(load_Q=True, calib_folder_name=calibration_folder_name, calib_file_name=analysis_data_file_name)
 
-        print('All of the required data has been obtained from the analysis.')
+            # I will use only the calibration polynomial fits for E field vs RF power detector signal (Voltage) or its respective detected power. This is because the relationship is quite linear. This is not the case for the surviving fraction vs RF power detector signal + power.
 
-        # Created folder that will contain all of the analyzed data
-        os.chdir(saving_folder_location)
-        os.chdir(self.exp_folder_name)
+            # RF E Field amplitude vs RF power parameters fit curves.
+            extracted_E_field_vs_RF_power_fits_set_df = wvg_calib_analysis.get_converted_E_field_curve_fits()
 
-        if os.path.isdir(analyzed_data_folder):
-            print('Saving data folder already exists. It will be rewritten.')
-            shutil.rmtree(analyzed_data_folder)
+            # Calibration frequencies and the frequencies used in the experiment are not the same. I am determining calibration frequencies that are closest to the frequencies in the experiment
 
-        os.mkdir(analyzed_data_folder)
-        os.chdir(analyzed_data_folder)
+            # Unique frequency values used for the experiment
+            freq_arr = self.exp_data_frame.index.get_level_values('Waveguide Carrier Frequency [MHz]').drop_duplicates().values
 
-        # After saving the data we need to have the means for a user to conveniently import it back. Since we have multiindex data frame in general, we need to specify which rows are the columns names and levels and which columns are the indeces. This information gets stored in the import_info.txt file, which has this information for every data file, which corresponds to a data frame.
+            closest_freq_arr = freq_arr.copy()
 
-        # Initialize the data frame holding information about the analyzed data that gets saved
-        self.saving_info_df = pd.DataFrame()
-        self.saving_info_df.index.name = 'File Name'
+            # Unique frequencie values used for the calibration
+            calib_freq_arr = extracted_E_field_vs_RF_power_fits_set_df.index.get_level_values('Waveguide Carrier Frequency [MHz]').drop_duplicates().values
 
-        def add_to_saving_info(df, file_name):
-            ''' Add additional row to the saving_info_df, given the df itself and its name that is used for saving it in the textual format. Also save the file itself.
-            '''
-            # Need to 'listify' each 'range' method here. This is the change from Python 2.7 to Python 3
-            header_arr = list(range(0,len(df.columns.names)))
-            index_col_arr = list(range(0,len(df.index.names)))
+            for i in range(freq_arr.shape[0]):
+                freq_diff_arr = np.abs(calib_freq_arr - freq_arr[i])
+                min_freq_diff = np.min(freq_diff_arr)
+                closest_freq_arr[i] = calib_freq_arr[np.where(freq_diff_arr == min_freq_diff)][0]
 
-            saving_s = pd.Series()
-            saving_s['Header List'] = header_arr
-            saving_s['Index Column List'] = index_col_arr
+            # Dictionary of the experiment frequencies and the calibration frequencies (key and value respectively)
+            closest_freq_dict = dict(np.array([freq_arr, closest_freq_arr]).T)
 
-            saving_s.name = file_name
+            # We need to make sure that the closest calibration frequencies are not very off from the experiment frequncies. Here I am allowing only 0.2 MHz difference
+            max_diff = 0.2
+            if freq_arr[np.abs(freq_arr - closest_freq_arr) > max_diff].shape[0] > 0:
+                print('WARNING!!! There is/are frequencies in the experiment that are more than ' +str(max_diff) + ' MHz off from the closest calibration frequencies')
 
-            self.saving_info_df = self.saving_info_df.append(saving_s)
+            # Dataframe containing readings from the RF power detectors
+            rf_pow_df, rf_system_power_outlier_df = self.get_rf_sys_pwr_det_data()
 
-            os.chdir(saving_folder_location)
-            os.chdir(self.exp_folder_name)
-            os.chdir(analyzed_data_folder)
+            def get_system_E_field(df):
+                ''' Calculates average electric field amplitude using the polynomial calibration fit functions for E^2 vs RF power sensor detected power [mW] and E vs RF power sensor reading [V]. The average of the two results is taken as the best estimate for the power used.
 
-            df.to_csv(path_or_buf=file_name+'.txt', header=True)
-
-        print('Saving the analysis data.')
-
-        # Beam-end Faraday cup
-        add_to_saving_info(df=self.beam_end_dc_df, file_name='beam_end_fc')
-
-        # Quenching cavities
-        add_to_saving_info(df=self.quenching_cavities_df, file_name='quenching_cav')
-
-        # RF System power detectors
-        add_to_saving_info(df=self.rf_system_power_df, file_name='rf_sys_pwr_det')
-
-        # Digitizers
-        add_to_saving_info(df=self.digitizers_data_df, file_name='digitizers_data')
-
-        # Phase difference between the combiners and their average frequency response = RC-type phase shift
-        add_to_saving_info(df=self.combiner_difference_df, file_name='comb_phase_diff')
-
-        # Mean Inter digitizer delay = delay between Digi 1 and Digi 2. Delay for all of the harmonics is averaged together.
-        add_to_saving_info(df=self.digi_2_from_digi_1_mean_delay_df, file_name='inter_digi_mean_delay')
-
-        # Inter digitizer delay = delay between Digi 1 and Digi 2 for every harmonic separately.
-        add_to_saving_info(df=self.digi_2_from_digi_1_delay_df, file_name='inter_digi_delay')
-
-        # Main initial FOSOF data containing phase difference
-        add_to_saving_info(df=self.phase_diff_data_df, file_name='phase_diff')
-
-        # Phase differences from averaged averaging sets
-        add_to_saving_info(df=self.phase_av_set_averaged_df, file_name='phase_av_set_averaged')
-
-        # RF CH A - RF CH B phases
-        add_to_saving_info(df=self.phase_A_minus_B_df, file_name='phase_A_minus_B')
-
-        # RF CH A + RF CH B phases, which gives the frequency response of the detection system.
-        add_to_saving_info(df=self.phase_freq_response_df, file_name='phase_freq_resp')
-
-        # Phases from all of the repeats averaged together. These are assumed to be the FOSOF + RF phases.
-        add_to_saving_info(df=self.fosof_phases_df, file_name='fosof_phases')
-
-        # FOSOF amplitudes
-        add_to_saving_info(df=self.fosof_ampl_df, file_name='fosof_ampls')
-
-        # Saving the data frame containing information about loading the data.
-        self.saving_info_df.to_csv(path_or_buf='saving_info'+'.txt', header=True)
-
-        # Saving the log of all the errors/warning during the data analysis
-        self.err_warn_df.to_csv(path_or_buf='err_warn'+'.txt', header=True)
-
-        print('All of the analysis data has been successfully saved.')
-
-        os.chdir(saving_folder_location)
-
-    def load_saved_data(self):
-        ''' Loads previously analyzed saved data. This way the time consuming analysis of the data set does not have to be repeated.
-
-        One has to make sure that all of the data was indeed saved. Otherwise the exception will be thrown.
-        '''
-
-        os.chdir(saving_folder_location)
-        os.chdir(self.exp_folder_name)
-
-        if os.path.isdir(analyzed_data_folder):
-            print('Folder with saved analysis data exists. Loading the data...')
-            os.chdir(analyzed_data_folder)
-
-            # Import the errors/warnings log
-            self.err_warn_df = pd.read_csv(filepath_or_buffer='err_warn'+'.txt', delimiter=',', comment='#', header=0, skip_blank_lines=True, index_col=0)
-
-            # Importing the file with the information about loading the data.
-            self.saving_info_df = pd.read_csv(filepath_or_buffer='saving_info'+'.txt', delimiter=',', comment='#', header=0, skip_blank_lines=True, index_col=0)
-
-            # Convert the strings as the values for these columns to lists of integer elements
-            self.saving_info_df['Index Column List'] = self.saving_info_df['Index Column List'].transform(lambda x: [int(i) for i in x[1:-1].split(',')])
-
-            self.saving_info_df['Header List'] = self.saving_info_df['Header List'].transform(lambda x: [int(i) for i in x[1:-1].split(',')])
-
-            def load_saved_data(file_name):
-                ''' Convenience function to load the csv text files with correct multiindex structure for both the columns and indeces
+                I am not using the spline fits. Also I am not using the calibration fit curves obtained with the DC ON/OFF ratio values on the y-axis. The reason is that the curves with the E field are much more linear, and thus I believe they should give better calibration.
                 '''
-                df = pd.read_csv(filepath_or_buffer=file_name+'.txt', delimiter=',', comment='#', header=self.saving_info_df.loc[file_name]['Header List'], skip_blank_lines=True, index_col=self.saving_info_df.loc[file_name]['Index Column List'])
+                freq = df.index.get_level_values('Waveguide Carrier Frequency [MHz]')[0]
+                calib_freq = closest_freq_dict[freq]
+                rf_channel = df.index.get_level_values('Configuration')[0]
 
-                return df
+                fits_df = extracted_E_field_vs_RF_power_fits_set_df.loc[rf_channel].loc[calib_freq].loc[['RF System Power Sensor Reading', 'RF System Power Sensor Detected Power']]
 
-            # Load the saved data.
-            self.beam_end_dc_df = load_saved_data('beam_end_fc')
-            self.quenching_cavities_df = load_saved_data('quenching_cav')
-            self.rf_system_power_df = load_saved_data('rf_sys_pwr_det')
-            self.digitizers_data_df = load_saved_data('digitizers_data')
-            self.combiner_difference_df = load_saved_data('comb_phase_diff')
-            self.digi_2_from_digi_1_mean_delay_df = load_saved_data('inter_digi_mean_delay')
-            self.digi_2_from_digi_1_delay_df = load_saved_data('inter_digi_delay')
-            self.phase_diff_data_df = load_saved_data('phase_diff')
-            self.phase_av_set_averaged_df = load_saved_data('phase_av_set_averaged')
-            self.phase_A_minus_B_df = load_saved_data('phase_A_minus_B')
-            self.phase_freq_response_df = load_saved_data('phase_freq_resp')
-            self.fosof_phases_df = load_saved_data('fosof_phases')
-            self.fosof_ampl_df = load_saved_data('fosof_ampls')
+                sensor_pwr_poly_fit_func = fits_df['Polynomial Fit']['RF System Power Sensor Detected Power']
+                sensor_volt_poly_fit_func = fits_df['Polynomial Fit']['RF System Power Sensor Reading']
 
-            print('The data has been successfully loaded')
+                # Determine the electric field value using two different polynomial fit functions
+                e_field_df = df[['Detected RF Power [mW]']].transform(lambda x: np.sqrt(sensor_pwr_poly_fit_func(x))).join(df[['RF Power Detector Reading [V]']].transform(lambda x: sensor_volt_poly_fit_func(x)))
 
-        else:
-            print('Folder with saved analysis data is not present')
+                e_field_df['E Field [V/cm]'] = 1/2 * (e_field_df['Detected RF Power [mW]'] + e_field_df['RF Power Detector Reading [V]'])
+
+                return e_field_df[['E Field [V/cm]']]
+
+            # The conversion to the E field is performed for each waveguide separately
+            rf_pow_A_df_grouped = rf_pow_df['RF System A'].groupby(['Waveguide Carrier Frequency [MHz]', 'Configuration'])
+            rf_e_field_A_df = rf_pow_A_df_grouped.apply(get_system_E_field)
+
+            rf_pow_B_df_grouped = rf_pow_df['RF System B'].groupby(['Waveguide Carrier Frequency [MHz]', 'Configuration'])
+            rf_e_field_B_df = rf_pow_B_df_grouped.apply(get_system_E_field)
+
+            # The waveguides do not have the same power in them. However, the correction that we can apply is only for the case when both the waveguides are off from the expected power by the same amount. One way to deal with this (as an approximation) is to simply take the average of the RF powers in both of the waveguides. I can also take the average of the E field amplitudes. I guess, since ultimately I am interested in power, I should take the average of two powers, not the fields.
+            avg_e_field_df = np.sqrt(1/2 * (rf_e_field_A_df**2 + rf_e_field_B_df**2))
+
+            self.avg_e_field_df = avg_e_field_df
+
+        return self.avg_e_field_df
+
+    def correct_phase_diff_for_RF_power(self, beam_rms_rad=1.60):
+        ''' Correct FOSOF phases for the required RF power in the waveguides, given the assumed beam rms radius [mm].
+        '''
+        if self.beam_rms_rad != beam_rms_rad:
+
+            self.wvg_pwr_fosof_correc_Q = True
+            self.beam_rms_rad = beam_rms_rad
+
+
+            avg_e_field_df = self.calc_wvg_E_field()
+
+            # Non-corrected phases
+
+            # Here I am setting the dataframe to None, so that the class will recalculate the phase difference data from scratch. This is important, since I am setting the corrected phase difference data to be of the same name as the original phase difference data. This way I can easily use all of the other analysis methods without any modification. If I would not set this data frame to None, then if I decide to correct the phases again (for different beam rms radius, for instance) then it will apply the correction to already corrected phase differences, which is a wrong thing to do.
+            self.phase_diff_data_df = None
+
+            phase_diff_df = self.get_phase_diff_data()
+
+            # We have sometimes that there are one or two traces that have outlying RF power detector voltages, even though there are no issues with the SNR. Because of that we cannot perform correction for imperfect power. In this case it does not harm us to simply disregard these traces. Notice that that we can perform this filtering only if we had no filtering done before by the get_phase_diff_data() method, since it is possible to have the exact correspondence between the very low SNR and the RF power detector voltage outliers. In this case we get these traces removed in the get_phase_diff_data() method
+
+            rf_pow_df, rf_system_power_outlier_df = self.get_rf_sys_pwr_det_data()
+
+            # Check if the filtering was done before in the get_rf_sys_pwr_det_data() method and then if there are any power measurement outliers
+            if not(self.phase_diff_data_filtered_Q) and (rf_system_power_outlier_df.shape[0] > 0):
+                snr_null_df = phase_diff_df.loc[phase_diff_df.loc[slice(None), ('RF Combiner I Reference', 'First Harmonic', 'SNR')].isnull()]
+                # Check if there are no low SNR values
+                if snr_null_df.shape[0] == 0:
+
+                    phase_diff_df = phase_diff_df.drop(rf_system_power_outlier_df.index)
+
+                    warning_mssg = "To perform the correction of FOSOF phases for imperfect waveguides' power the traces corresponding to RF power detectors' outlying readings are removed from the phase difference dataframe."
+
+                    self.err_warn_df = self.err_warn_df.append(pd.Series({'Message': warning_mssg}, name='Removal traces corresponding to positive KRYTAR power detector readings'))
+
+                    print(warning_mssg)
+
+            # We now want to determine the electric field amplitude that was in each of the waveguides for each experiment data point.
+
+            # To apply the correction to FOSOF phases we need to know the FOSOF lineshape slope for each RF channel configuration. This is what I am determining in the code below
+            index_name_list = list(phase_diff_df.index.names)
+            index_name_list.remove('Configuration')
+            index_name_list.remove('Average')
+            index_name_list.remove('Repeat')
+            index_name_list.remove('Elapsed Time [s]')
+            index_name_list.insert(0, 'Configuration')
+
+            # Calculating average phases for each RF frequency. We need to make sure to shift the phases in their proper qudrants before performing the average
+            phase_diff_av_df = phase_diff_df.reset_index().set_index(index_name_list).sort_index()['RF Combiner I Reference', 'First Harmonic'][['Fourier Phase [Rad]']].groupby(index_name_list).aggregate(lambda x: np.mean(phases_shift(x)[0]))
+
+            def get_fosof_slope_sign(df):
+                ''' Outputs flag of whether the slope of the first-order polynomial fit to the FOSOF data is positive or not.
+                '''
+                x_data_arr = df['Waveguide Carrier Frequency [MHz]'].values
+                phase_data_arr = df['Fourier Phase [Rad]'].values
+
+                # Important, to make sure that the FOSOF phases do not have 0-2pi discontinuities vs RF frequency
+                phase_data_arr = correct_FOSOF_phases_zero_crossing(x_data_arr, phase_data_arr)
+
+                return np.polyfit(x_data_arr, phase_data_arr, 1)[0] > 0
+
+            index_name_list = list(phase_diff_av_df.index.names)
+            index_name_list.remove('Waveguide Carrier Frequency [MHz]')
+
+            fosof_slope_df = phase_diff_av_df.reset_index().set_index(index_name_list).sort_index().groupby(index_name_list).apply(get_fosof_slope_sign)
+
+            fosof_slope_df.name = 'Slope Positive'
+
+            # Unique frequency values used for the experiment
+            freq_arr = self.exp_data_frame.index.get_level_values('Waveguide Carrier Frequency [MHz]').drop_duplicates().values
+
+            # Load the simulation data
+            fosof_sim_data = hydrogen_sim_data.FOSOFSimulation(load_Q=True)
+
+            # Use the appropriate simulation parameters and find the interpolated phase values
+            e_field_needed = self.get_exp_parameters()['Waveguide Electric Field [V/cm]']
+            wvg_sep = self.get_exp_parameters()['Waveguide Separation [cm]']
+            acc_volt = self.get_exp_parameters()['Accelerating Voltage [kV]']
+
+            # Important note: the simulation contains absolute frequencies, whereas we have blinded frequencies. To ensure the correct phase correction, we need to add the blind to our frequencies in the simulation.
+
+            sim_params_dict = { 'Frequency Array [MHz]': freq_arr,
+                                'Waveguide Separation [cm]': wvg_sep,
+                                'Accelerating Voltage [kV]': acc_volt,
+                                'Off-axis Distance [mm]': beam_rms_rad}
+
+            zero_crossing_vs_off_axis_dist_chosen_df, fosof_sim_info_chosen_df = fosof_sim_data.filter_fosof_sim_set(sim_params_dict, blind_freq_Q=True)
+
+            phase_vs_e_field_poly_fit_df = fosof_sim_data.get_e_field_func()
+
+            # Determine interpolated simulation FOSOF lineshape parameters. Mainly we need to know the slope sign at each RF frequency
+            zero_cross_params_s = fosof_sim_data.calc_interp_FOSOF_lineshape_params(e_field_needed)
+            zero_cross_params_s
+
+            def correct_phase_for_RF_power(df):
+                ''' Determine the phase correction that should be ADDED to the experiment FOSOF phases in order to correct them for incorrect power supplied to the waveguides
+                '''
+                freq_value = df.index.get_level_values('Waveguide Carrier Frequency [MHz]')[0]
+                slope_pos_Q = df.index.get_level_values('Slope Positive')[0]
+
+                df_corr = df.transform(lambda col: list(map(lambda x: fosof_sim_data.interp_FOSOF_phi_for_E_field(freq_value, 0, x, e_field_needed, slope_pos_Q), col))).rename(columns={'E Field [V/cm]': 'FOSOF Phase Correction [Rad]'})
+
+                return df_corr
+
+            fosof_phase_corr_df = avg_e_field_df.join(fosof_slope_df).set_index('Slope Positive', append=True).groupby(['Slope Positive', 'Waveguide Carrier Frequency [MHz]']).apply(correct_phase_for_RF_power).reset_index().set_index(avg_e_field_df.index.names).join(avg_e_field_df)
+
+            # Determine the corrected FOSOF phases. Notice that the correction is applied ONLY to the first harmonic. We do not have any reason to believe that the second harmonic should even need a correction - there should be no signal there.
+            phase_diff_orig_df = phase_diff_df.copy()
+
+            # phase_diff_df has the same id as the self.phase_diff_data_df. Thus setting phase_diff_df sets the self.phase_diff_data_df as well.
+            for source in phase_diff_df.columns.get_level_values('Source').drop_duplicates().values:
+
+                phase_diff_df.loc[slice(None), (source, 'First Harmonic', 'Fourier Phase [Rad]')] = (phase_diff_orig_df.loc[slice(None), (source, 'First Harmonic', 'Fourier Phase [Rad]')] + fosof_phase_corr_df['FOSOF Phase Correction [Rad]']).transform(convert_phase_to_2pi_range)
+
+    def load_instance(self):
+        ''' This function loads previously pickled class instance.
+
+        The data contained in the pickled file gets loaded into this class instance. The function is very useful if one does not want to reanalyze data again.
+        '''
+        os.chdir(saving_folder_location)
+        os.chdir(self.exp_folder_name)
+
+        f = open(self.analysis_data_file_name_to_load, 'rb')
+        loaded_dict = pickle.load(f)
+        f.close()
+        self.__dict__.update(loaded_dict)
+        print('The class instance has been loaded')
+
+        os.chdir(saving_folder_location)
+        os.chdir(self.exp_folder_name)
+
+    def save_instance(self, rewrite_Q=False):
+        ''' Calling this function pickles the analysis class instance. If the data has been previously saved, the call to this function overwrites previously written pickled file with the same file name.
+        '''
+
+        already_exist_Q = False
+
+        analysis_data_file_name = self.get_analysis_data_object_file_name(self.beam_rms_rad)
+
+        os.chdir(saving_folder_location)
+        os.chdir(self.exp_folder_name)
+
+        if os.path.isfile(analysis_data_file_name):
+            print('Data object file already exists.')
+            already_exist_Q = True
+
+        if (already_exist_Q and rewrite_Q) or (already_exist_Q == False):
+
+            f = open(analysis_data_file_name, 'wb')
+            pickle.dump(self.__dict__, f, 2)
+
+            print('The class instance has been saved')
+
+        os.chdir(saving_folder_location)
+        os.chdir(self.exp_folder_name)
+
 #%%
-# #data_set = DataSetFOSOF(exp_folder_name='180626-233004 - FOSOF Acquisition 910 onoff (50 pct)  - pi config, 24 V per cm PD 120V, 908-912 MHz', load_data_Q=False)
-# #data_set = DataSetFOSOF(exp_folder_name='180702-020825 - FOSOF Acquisition - 0 config, 8 V per cm PD 120 V, 49.86 kV, 908-912 MHz. B_x scan', load_data_Q=False)
-# data_set = DataSetFOSOF(exp_folder_name='180625-150533 - FOSOF Acquisition - 0 config, 18 V per cm PD OFF, 49.86 kV, 908-912 MHz', load_data_Q=False)
-# #
-# # data_set.save_analysis_data()
-# # #%%
+# #exp_folder_name='180506-123908 - FOSOF Acquisition - 0 config, 14 V per cm, PD ON 120 V,  914-918 MHz'
+# #exp_folder_name='180508-170626 - FOSOF Acquisition - 0 config, 14 V per cm, PD 120 V, 914-918 MHz'
+# exp_folder_name='180416-141245 - FOSOF Acquisition - 0 config, 14 V per cm PD ON 120 V'
+#exp_folder_name = '180706-124508 - FOSOF Acquisition - pi config, 18 V per cm PD 120 V, 49.86 kV, 908-912 MHz'
+# exp_folder_name = '180319-161930 - FOSOF Acquisition - 0 config, 18 V per cm PD OFF'
+# exp_folder_name = '180327-122234 - FOSOF Acquisition - pi config, 5 V per cm PD ON 120 V'
+
+#exp_folder_name = '180405-220057 - FOSOF Acquisition 910 onoff CGX pressure change - pi config, 18 V per cm PD 120V, P_CGX change'
+
+# exp_folder_name = '180706-124508 - FOSOF Acquisition - pi config, 18 V per cm PD 120 V, 49.86 kV, 908-912 MHz'
+
+# exp_folder_name = '180327-101626 - FOSOF Acquisition - pi config, 8 V per cm PD ON 120 V'
+#
+# exp_folder_name = '180327-103559 - FOSOF Acquisition - 0 config, 8 V per cm PD ON 120 V'
+#
+# exp_folder_name = '180430-123222 - FOSOF Acquisition - pi config, 18 V per cm, PD 120 V'
+#
+# exp_folder_name = '180430-130724 - FOSOF Acquisition - 0 config, 18 V per cm, PD 120 V'
+#
+# exp_folder_name = '180430-140520 - FOSOF Acquisition - 0 config, 18 V per cm, PD 120 V'
+#
+# exp_folder_name = '180430-144824 - FOSOF Acquisition - pi config, 18 V per cm, PD 120 V'
+
+# exp_folder_name = '180430-154020 - FOSOF Acquisition - pi config, 18 V per cm, PD 120 V'
+#
+# exp_folder_name = '180625-150533 - FOSOF Acquisition - 0 config, 18 V per cm PD OFF, 49.86 kV, 908-912 MHz'
+
+#exp_folder_name = '180625-172031 - FOSOF Acquisition - pi config, 18 V per cm PD OFF, 49.86 kV, 908-912 MHz'
+
+#exp_folder_name = '180625-140037 - FOSOF Acquisition - 0 config, 18 V per cm PD OFF, 49.86 kV, 908-912 MHz'
+
+#exp_folder_name = '180409-183122 - FOSOF Acquisition - pi config, 24 V per cm PD ON 120 V'
+
+# exp_folder_name = '180416-110628 - FOSOF Acquisition - pi config, 14 V per cm PD ON 120 V'
+#
+# beam_rms_rad = 2.4
+# # List of beam  rms radius values for correcting the FOSOF phases using the simulations. Value of None corresponds to not applying the correction.
+# data_set = DataSetFOSOF(exp_folder_name=exp_folder_name, load_Q=False, beam_rms_rad_to_load=beam_rms_rad)
+#
+# # The power correction is performed only for the simple FOSOF data sets.
+# if data_set.get_exp_parameters()['Experiment Type'] != 'Waveguide Carrier Frequency Sweep':
+#     beam_rms_rad = None
+#     data_set = DataSetFOSOF(exp_folder_name=exp_folder_name, load_Q=True, beam_rms_rad_to_load=beam_rms_rad)
+#
 # fc_df = data_set.get_fc_data()
 # quenching_df = data_set.get_quenching_cav_data()
-# rf_pow_df = data_set.get_rf_sys_pwr_det_data()
-# #%%
-# start = time.time()
+# rf_pow_df, rf_system_power_outlier_df = data_set.get_rf_sys_pwr_det_data()
 #
 # digi_df = data_set.get_digitizers_data()
+#
 # comb_phase_diff_df = data_set.get_combiners_phase_diff_data()
 # digi_delay_df = data_set.get_inter_digi_delay_data()
+#
+# if beam_rms_rad is not None:
+#     data_set.correct_phase_diff_for_RF_power(beam_rms_rad)
+#
 # phase_diff_df = data_set.get_phase_diff_data()
 # phase_av_set_averaged_df = data_set.average_av_sets()
 # phase_A_minus_B_df, phase_freq_response_df = data_set.cancel_out_freq_response()
 # fosof_ampl_df, fosof_phase_df = data_set.average_FOSOF_over_repeats()
 #
-# end = time.time()
-# print(end-start)
-# # #%%
-# # rf_pow_df
+# data_set.save_instance(rewrite_Q=True)
 # #%%
-# rf_pow_df
-# #%%
-# data_set.get_exp_parameters()['Experiment Start Time [s]']
-# eastern_tz = pytz.timezone('US/Eastern')
-#
-# 180625-150533
-#
-# exp_start_datetime = datetime.datetime.fromtimestamp(timestamp_start, tz=eastern_tz)
-#
-# #%%
-# exp_start_datetime
-# #%%
-# exp_end_datetime
-# #%%
-# exp_end_datetime = datetime.datetime.fromtimestamp(timestamp, tz=eastern_tz)
-# #%%
-# start_t
-# #%%
-# exp_end_datetime - exp_start_datetime
-# #%%
-# ts = pd.Series(np.random.randn(1000), index=pd.date_range('1/1/2000', periods=1000))
-# ts
-# #%%
-# ts = ts.cumsum()
-# ts
-# #%%
-# #%%
-# df = pd.DataFrame(np.random.randn(1000, 4), index=ts.index, columns=list('ABCD'))
-# df = df.cumsum()
-# #%%
-# df
-# #%%
-# df.plot()
-# #%%
+# data_set.get_exp_parameters()

@@ -7,10 +7,11 @@ import os
 import string
 import shutil
 
-sys.path.insert(0,"C:/Users/Helium1/Google Drive/Research/Lamb shift measurement/Code") #
-
+#sys.path.insert(0,"C:/Users/Helium1/Google Drive/Research/Lamb shift measurement/Code")
+# For Home
+sys.path.insert(0,"E:/Google Drive/Research/Lamb shift measurement/Code")
 from exp_data_analysis import *
-from fosof_data_set_analysis import *
+#from fosof_data_set_analysis import *
 from ZX47_Calibration_analysis import *
 from KRYTAR_109_B_Calib_analysis import *
 #from hydrogen_sim_data import *
@@ -36,6 +37,8 @@ data_folder = "//LAMBSHIFT-PC/Google Drive/data"
 # Experiment data file name
 data_file = 'data.txt'
 
+saving_folder_location = 'E:/Google Drive/Research/Lamb shift measurement/Data/Waveguide calibration'
+
 # File containing quench cavities' parameters.
 quench_cav_params_file_name = 'filename.quench'
 
@@ -57,7 +60,7 @@ class DataSetQuenchCurveWaveguide():
         self.exp_folder_name = exp_folder_name
 
         # Location for storing the analysis folders
-        self.saving_folder_location = 'C:/Research/Lamb shift measurement/Data/Waveguide calibration'
+        self.saving_folder_location = saving_folder_location
 
         self.saving_file_name = 'class_instance.pckl'
 
@@ -433,6 +436,8 @@ class DataSetQuenchCurveWaveguide():
         f.close()
         self.__dict__.update(loaded_dict)
         print('The class instance has been loaded')
+
+        self.saving_folder_location = saving_folder_location
 
         os.chdir(self.saving_folder_location)
 

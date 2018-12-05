@@ -7,7 +7,7 @@ import os
 import string
 import shutil
 
-sys.path.insert(0,"C:/Users/Helium1/Google Drive/Research/Lamb shift measurement/Code") #
+sys.path.insert(0,"E:/Google Drive/Research/Lamb shift measurement/Code")
 
 from exp_data_analysis import *
 from fosof_data_set_analysis import *
@@ -34,6 +34,9 @@ import textwrap
 #%%
 # Folder containing acquired data table
 data_folder = "//LAMBSHIFT-PC/Google Drive/data"
+
+saving_folder_location = 'E:/Google Drive/Research/Lamb shift measurement/Data/Waveguide calibration'
+
 # Experiment data file name
 data_file = 'data.txt'
 
@@ -60,7 +63,7 @@ class DataSetQuenchCurveWaveguideOld(DataSetQuenchCurveWaveguide):
         self.exp_folder_name = exp_folder_name
 
         # Location for storing the analysis folders
-        self.saving_folder_location = 'C:/Research/Lamb shift measurement/Data/Waveguide calibration'
+        self.saving_folder_location = saving_folder_location
 
         self.saving_file_name = 'class_instance.pckl'
 

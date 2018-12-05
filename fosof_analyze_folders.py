@@ -7,9 +7,11 @@ import os
 import string
 import shutil
 
-sys.path.insert(0,"C:/Users/Helium1/Google Drive/Code/Python/Testing/Blah") #
+# For home
+sys.path.insert(0,"E:/Google Drive/Research/Lamb shift measurement/Code")
+
 from exp_data_analysis import *
-from fosof_data_set_analysis import *
+import fosof_data_set_analysis
 import re
 import time
 import math
@@ -23,15 +25,24 @@ import matplotlib.pyplot as plt
 
 
 import threading
-from Queue import Queue
+from queue import Queue
 
 # Package for wrapping long string to a paragraph
 import textwrap
 
-from Tkinter import *
-import ttk
-import tkMessageBox
+from tkinter import *
+from tkinter import ttk
+
+from tkinter import messagebox
 #%%
+def get_analysis_data_object_file_name(beam_rms_rad, version_number):
+    ''' Get name of the analysed data object
+    '''
+    if beam_rms_rad is None:
+        analysis_data_file_name = 'r' + 'NA' + 'v' + str(version_number) + '.pckl'
+    else:
+        analysis_data_file_name = 'r' + str(beam_rms_rad) + 'v' + str(version_number) + '.pckl'
+    return analysis_data_file_name
 
 def fosof_data_sets_analyze():
     global analysis_interrupted_Q, analysis_in_process_Q, stop_progress_thread, expected_analysis_duration
@@ -40,13 +51,12 @@ def fosof_data_sets_analyze():
     start_button_text.set('Stop the analysis')
 
     # Location where the analyzed experiment is saved
-    saving_folder_location = 'C:/Research/Lamb shift measurement/Data/FOSOF analyzed data sets'
+    #saving_folder_location = 'C:/Research/Lamb shift measurement/Data/FOSOF analyzed data sets'
+    # For Home
+    saving_folder_location = 'E:/2017-10-17 Lamb Shift Measurement/Data/FOSOF analyzed data sets'
 
     # Analysis version. Needed for checking if the data set has been analyzed before.
     version_number = 0.1
-
-    # Name of the folder that stores experiment analysis data
-    analyzed_data_folder = 'Data Analysis ' + str(version_number)
 
     # File containing parameters and comments about all of the data sets.
     exp_info_file_name = 'fosof_data_sets_info.csv'
@@ -63,6 +73,14 @@ def fosof_data_sets_analyze():
 
     # Pick only fully analyzed data sets that had no errors during the analysis/acquisition.
     exp_info_chosen_df = exp_info_df[exp_info_df['Data Set Fully Acquired'] & ~(exp_info_df['Error(s) During Analysis']) & (exp_info_df['Analysis Finished'])]
+
+    # After this date I was acquiring only the data sets without the atoms present. These data sets were analyzed with the different code.
+    max_datetime = pd.to_datetime('2018-08-31')
+
+    exp_info_chosen_df['Acquisition Start Date'] = pd.to_datetime(exp_info_chosen_df['Acquisition Start Date'])
+
+    # Selecting the data sets before the max_datetime
+    exp_info_chosen_df = exp_info_chosen_df[exp_info_chosen_df['Acquisition Start Date'] < max_datetime].sort_values(by='Acquisition Start Date')
 
     exp_name_list = exp_info_chosen_df.index
 
@@ -83,54 +101,83 @@ def fosof_data_sets_analyze():
 
         experiment_current_name_tk_var.set('Experiment: (' + str(exp_counter+1) + str('/') + str(exp_name_list.shape[0]) + ') ' + exp_folder_name)
 
-        os.chdir(saving_folder_location)
-        os.chdir(exp_folder_name)
+        # List of beam rms radius values for correcting the FOSOF phases using the simulations. Value of None corresponds to not applying the correction. Note that the None value has to be first in the list. This is for checking whether the analysis has been performed before or not on the FOSOF data sets that are not of the simple Waveguide Carrier Frequency Sweep type.
+        beam_rms_rad_list = [None, 0.8, 1.6, 2.4]
 
-        if not(os.path.isdir(analyzed_data_folder)):
-            print(exp_folder_name)
+        for beam_rms_rad in beam_rms_rad_list:
 
-            time_start = time.time()
+            os.chdir(saving_folder_location)
+            os.chdir(exp_folder_name)
 
-            if av_duration_per_row_df is None:
-                av_duration_average = 0
-            else:
-                av_duration_average = np.mean(av_duration_per_row_df['Average Analysis Time Per Row [ms]'].values) / 1E3
+            analyzed_data_file_name = get_analysis_data_object_file_name(beam_rms_rad, version_number)
 
-            data_set = DataSetFOSOF(exp_folder_name=exp_folder_name, load_data_Q=False)
-            n_rows = data_set.exp_data_frame.shape[0]
+            if not(os.path.isfile(analyzed_data_file_name)):
+                data_set = fosof_data_set_analysis.DataSetFOSOF(exp_folder_name=exp_folder_name, load_Q=False, beam_rms_rad_to_load=beam_rms_rad)
 
-            expected_analysis_duration = av_duration_average * n_rows
+                # In case we have FOSOF data set that is not of the simplest type AND the beam rms radius is not NONE, then there should be no analysis made, because it was already finished (None is the first value in the loop of beam rms radius values)
+                if not(data_set.get_exp_parameters()['Experiment Type'] != 'Waveguide Carrier Frequency Sweep' and (beam_rms_rad is not None)):
+                    print(exp_folder_name)
+                    print(beam_rms_rad)
+                    time_start = time.time()
 
-            stop_progress_thread = False
+                    if av_duration_per_row_df is None:
+                        av_duration_average = 0
+                    else:
+                        av_duration_average = np.mean(av_duration_per_row_df['Average Analysis Time Per Row [ms]'].values) / 1E3
 
-            progress_bar_thread = threading.Thread(target=progress_bar_update)
-            progress_bar_thread.start()
+                    stop_progress_thread = False
 
-            data_set.save_analysis_data()
+                    progress_bar_thread = threading.Thread(target=progress_bar_update)
+                    progress_bar_thread.start()
 
-            stop_progress_thread = True
-            progress_bar_thread.join()
+                    n_rows = data_set.exp_data_frame.shape[0]
 
-            time_end = time.time()
-            analysis_duration = time_end - time_start
-            av_duration_per_row = analysis_duration / n_rows
+                    expected_analysis_duration = av_duration_average * n_rows
 
-            av_duration_per_row_append_df = pd.DataFrame({'Experiment Folder Name': pd.Series(exp_folder_name), 'Average Analysis Time Per Row [ms]':pd.Series([av_duration_per_row*1E3])}).set_index('Experiment Folder Name')
+                    # The power correction is performed only for the simple FOSOF data sets.
 
-            if av_duration_per_row_df is None:
-                av_duration_per_row_df = av_duration_per_row_append_df
+                    fc_df = data_set.get_fc_data()
+                    quenching_df = data_set.get_quenching_cav_data()
+                    rf_pow_df = data_set.get_rf_sys_pwr_det_data()
 
-            else:
-                av_duration_per_row_df = av_duration_per_row_df.append(av_duration_per_row_append_df)
+                    digi_df = data_set.get_digitizers_data()
 
-            # Saving the averaging time per row data back to the file. This writing is done inefficiently: after every new data set we rewrite the whole file instead of just appending the new row. I am too lazy to fix this.
-            av_duration_per_row_df.drop_duplicates().to_csv(path_or_buf=av_time_per_row_file_name, mode='w', header=True)
+                    comb_phase_diff_df = data_set.get_combiners_phase_diff_data()
+                    digi_delay_df = data_set.get_inter_digi_delay_data()
+
+                    if beam_rms_rad is not None:
+                        data_set.correct_phase_diff_for_RF_power(beam_rms_rad)
+
+                    phase_diff_df = data_set.get_phase_diff_data()
+                    phase_av_set_averaged_df = data_set.average_av_sets()
+                    phase_A_minus_B_df, phase_freq_response_df = data_set.cancel_out_freq_response()
+                    fosof_ampl_df, fosof_phase_df = data_set.average_FOSOF_over_repeats()
+
+                    data_set.save_instance(rewrite_Q=True)
+
+                    stop_progress_thread = True
+                    progress_bar_thread.join()
+
+                    time_end = time.time()
+                    analysis_duration = time_end - time_start
+                    av_duration_per_row = analysis_duration / n_rows
+
+                    av_duration_per_row_append_df = pd.DataFrame({'Experiment Folder Name': pd.Series(exp_folder_name), 'Average Analysis Time Per Row [ms]':pd.Series([av_duration_per_row*1E3])}).set_index('Experiment Folder Name')
+
+                    if av_duration_per_row_df is None:
+                        av_duration_per_row_df = av_duration_per_row_append_df
+
+                    else:
+                        av_duration_per_row_df = av_duration_per_row_df.append(av_duration_per_row_append_df)
+
+                    # Saving the averaging time per row data back to the file. This writing is done inefficiently: after every new data set we rewrite the whole file instead of just appending the new row. I am too lazy to fix this.
+                    os.chdir(saving_folder_location)
+
+                    av_duration_per_row_df.drop_duplicates().to_csv(path_or_buf=av_time_per_row_file_name, mode='w', header=True)
 
         exp_counter = exp_counter + 1
 
     os.chdir(saving_folder_location)
-
-
 
     # In case the analysis has been interrupted, then after stopping the analysis, set this boolean back to False, so that the analysis could continued again if needed.
     if analysis_interrupted_Q == True:
@@ -173,7 +220,7 @@ def ask_quit():
     if analysis_in_process_Q == False:
         root.destroy()
     else:
-        if tkMessageBox.askokcancel("Quit", "Do you really want to quit without stopping the analysis first?"):
+        if messagebox.askokcancel("Quit", "Do you really want to quit without stopping the analysis first?"):
             root.destroy()
 #%%
 if __name__ == '__main__':
@@ -242,14 +289,14 @@ if __name__ == '__main__':
 # #%%
 # np.setdiff1d(file_list, exp_info_df.index.values)
 #%%
-av_duration_per_row_s = pd.Series({
-    'Experiment Folder Name': 'Blah',
-    'Average Analysis Time Per Row [ms]': 1})
-#%%
-av_duration_per_row_s
-#%%
-
-av_duration_per_row_df = pd.DataFrame({'Experiment Folder Name': pd.Series('Blah'), 'Average Analysis Time Per Row [ms]':pd.Series([1])}).set_index('Experiment Folder Name')
-#%%
-av_duration_per_row_df
-#%%
+# av_duration_per_row_s = pd.Series({
+#     'Experiment Folder Name': 'Blah',
+#     'Average Analysis Time Per Row [ms]': 1})
+# #%%
+# av_duration_per_row_s
+# #%%
+#
+# av_duration_per_row_df = pd.DataFrame({'Experiment Folder Name': pd.Series('Blah'), 'Average Analysis Time Per Row [ms]':pd.Series([1])}).set_index('Experiment Folder Name')
+# #%%
+# av_duration_per_row_df
+# #%%

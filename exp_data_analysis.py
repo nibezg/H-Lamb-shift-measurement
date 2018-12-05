@@ -10,7 +10,10 @@ import time
 import scipy.fftpack
 import scipy.special
 import scipy.stats
+
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+
 import math
 import datetime
 # Package for wrapping long string to a paragraph
@@ -518,11 +521,18 @@ def straight_line_fit_params(data_arr, sigma_arr):
     # Degrees of freedom for the chi squared calculation
     dof = data_arr.shape[0] - n_constraints
 
-    # Reduced chi-squared. I tried using the scipy.stats function for calculating this, however it seems to give me a different answer for some reason. Not sure what is the issue with it.
-    chi_squared_reduced = np.sum(((data_arr-expected_arr)/sigma_arr)**2)/dof
+    # Chi-squared calculated makes sense only if dof > 0:
+    if dof >= 1:
+        # Reduced chi-squared. I tried using the scipy.stats function for calculating this, however it seems to give me a different answer for some reason. Not sure what is the issue with it.
+        chi_squared_reduced = np.sum(((data_arr-expected_arr)/sigma_arr)**2)/dof
 
-    # Probability of obtaining chi-squared larger than the calculated value = Survival function = 1 - cdf for the chi-squared distribution, where x is the non-reduced chi squared and df = degrees of freedom
-    prob_large_chi_squared = scipy.stats.chi2.sf(x=chi_squared_reduced*dof, df=dof)
+        # Probability of obtaining chi-squared larger than the calculated value = Survival function = 1 - cdf for the chi-squared distribution, where x is the non-reduced chi squared and df = degrees of freedom
+        prob_large_chi_squared = scipy.stats.chi2.sf(x=chi_squared_reduced*dof, df=dof)
+    else:
+
+        chi_squared_reduced = np.nan
+        prob_large_chi_squared = np.nan
+
     return pd.Series({'Weighted Mean': expected_arr[0], 'Weighted STD': weighted_sigma, 'Reduced Chi Squared': chi_squared_reduced, 'P(>Chi Squared)': prob_large_chi_squared})
 
 def get_krytar_109B_calib(min_det_v, max_det_v, rf_frequency_MHz = 910):
@@ -617,44 +627,84 @@ def divide_and_minimize_phase(phase_arr, div_number):
 
     return phase_arr
 
-def correct_FOSOF_phases_zero_crossing(x_data_arr, phase_data_arr):
-    ''' Special function for FOSOF lineshape. Corrects for any 0 phase crossing discontinuities in the FOSOF lineshape.
+def correct_FOSOF_phases_zero_crossing(x_data_arr, phase_data_arr, phase_sigma_arr, zero_cross_freq=910, slope=-0.1*4):
+    ''' Special function for FOSOF lineshape. Corrects for any 0 phase crossing discontinuities in the FOSOF lineshape. This is done by first specifying the approximate fit parameters for the data and then checking for the deviations of the data from the approximate fit and correcting the data accordingly.
 
     Inputs:
+
     :x_data: np.array for x-axis (Usually this is the array of RF frequencies used)
-    :phase_data_arr: corresponding list of FOSOF phases in [0, 2*np.pi range).
+    :phase_data_arr: corresponding list of FOSOF phases in [0, 2*np.pi range) that has not been divided by 4 yet.
+    :phase_sigma_arr: array of respective uncertainties in the phases.
+    :zero_cross_freq: frequency of zero-crossing for the approximate fit [MHz].
+    :slope: slope of the approximate fit line. Notice that I assume that the phase_data_arr has not been divided by 4 yet.
 
     Outputs:
     :phase_shifted_arr: np.array in the original order as the phase_data_arr with properly shifted phases
     '''
 
-    # Sorting the data array by x-axis in the increasing order
-    data_arr = np.array([x_data_arr, phase_data_arr]).T
-    data_arr = data_arr[x_data_arr.argsort()]
+    # Correct for 0-2*np.pi jumps
 
-    diff_arr = np.diff(phase_data_arr)
+    # Before I used this function to do so, however, it fails whenever the data is close to the 0-2pi jump. Because of the noise in the data, sometimes we might get several 0-2pi transitions at frequencies close to each other. The function would consider them as real jumps. This is problematic. Because of that I am using the phase_shift function. It will not work for all possible cases, unfortunately - whenever the scan range is such that the phases do actually go through more than 2pi. But we, as far as I know, do not have scan ranges that large here.
 
-    # Counter for 2pi-0 jumps
-    n_rotation = 0
+    # Later on I realized that the phases_shift will not work as well. This is due to scanning over large range, where now there might be actually no apparent 0-2pi jump in the data itself, but this is because the 0-2pi jump happens somewhere in the middle of the frequency range for which the data was not acquired. At the end I think the best way of doing this is to have some approximate fit parameters for the line and then correct the data based on these parameters. One problem is the fact that the slope might be not what I expect. For this I can try to fit with both the negative and positive slope and check which one gives smaller overall residuals from the fit.
 
-    # First phase element is never shifted
-    phase_shifted_arr = np.zeros(phase_data_arr.shape[0])
-    phase_shifted_arr[0] = phase_data_arr[0]
 
-    # We now look for any jumps of more than pi radians in phase. Whenever a jump like that is detected, the counter gets incremented in the respective direction, which corresponds to adding 2*np.pi*n_counter to the current phase
+    # # Sorting the data array by x-axis in the increasing order
+    # data_arr = np.array([x_data_arr, phase_data_arr]).T
+    # data_arr = data_arr[x_data_arr.argsort()]
+    #
+    # diff_arr = np.diff(phase_data_arr)
+    #
+    # # Counter for 2pi-0 jumps
+    # n_rotation = 0
+    #
+    # # First phase element is never shifted
+    # phase_shifted_arr = np.zeros(phase_data_arr.shape[0])
+    # phase_shifted_arr[0] = phase_data_arr[0]
+    #
+    # # We now look for any jumps of more than pi radians in phase. Whenever a jump like that is detected, the counter gets incremented in the respective direction, which corresponds to adding 2*np.pi*n_counter to the current phase
+    #
+    # # We start with the second element in the array of phases
+    # for i in range(phase_data_arr.shape[0])[1:]:
+    #
+    #     if diff_arr[i-1] > np.pi:
+    #         # Whenever the jump is positive (current phase is larger than the previous one by more than pi, then it means that at this x-axis value the FOSOF slope is negative, and thus we should subtract 2*np.pi from this point relative to the previous to make the lineshape continuous)
+    #         n_rotation = n_rotation - 1
+    #     if diff_arr[i-1] < -3*np.pi/2:
+    #         n_rotation = n_rotation + 1
+    #     phase_shifted_arr[i] = phase_data_arr[i] + 2*np.pi*n_rotation
+    #
+    # phase_shifted_arr = phase_shifted_arr[x_data_arr.argsort()]
 
-    # We start with the second element in the array of phases
-    for i in range(phase_data_arr.shape[0])[1:]:
+    # Approximate fit parameters for the data
+    offset = -zero_cross_freq * slope
 
-        if diff_arr[i-1] > np.pi:
-            # Whenever the jump is positive (current phase is larger than the previous one by more than pi, then it means that at this x-axis value the FOSOF slope is negative, and thus we should subtract 2*np.pi from this point relative to the previous to make the lineshape continuous)
-            n_rotation = n_rotation - 1
-        if diff_arr[i-1] < -3*np.pi/2:
-            n_rotation = n_rotation + 1
+    approx_fit_data_arr = slope * x_data_arr + offset
 
-        phase_shifted_arr[i] = phase_data_arr[i] + 2*np.pi*n_rotation
+    phase_data_shifted_arr = phase_data_arr - 2 * np.pi * np.round((phase_data_arr - approx_fit_data_arr) / (2*np.pi))
 
-    phase_shifted_arr = phase_shifted_arr[x_data_arr.argsort()]
+    fit_data_arr = np.poly1d(np.polyfit(x_data_arr, phase_data_shifted_arr, deg=1, w=1/phase_sigma_arr**2))(x_data_arr)
+
+    slope_1_tot_res = np.sum(np.abs(fit_data_arr - phase_data_shifted_arr))
+    phase_data_shifted_1_arr = phase_data_shifted_arr
+
+    slope = -1 * slope
+    offset = -zero_cross_freq * slope
+
+    approx_fit_data_arr = slope * x_data_arr + offset
+
+    phase_data_shifted_arr = phase_data_arr - 2 * np.pi * np.round((phase_data_arr - approx_fit_data_arr) / (2*np.pi))
+
+    fit_data_arr = np.poly1d(np.polyfit(x_data_arr, phase_data_shifted_arr, deg=1, w=1/phase_sigma_arr**2))(x_data_arr)
+
+    slope_2_tot_res = np.sum(np.abs(fit_data_arr - phase_data_shifted_arr))
+    phase_data_shifted_2_arr = phase_data_shifted_arr
+
+    if slope_2_tot_res <= slope_1_tot_res:
+        phase_shifted_arr = phase_data_shifted_2_arr
+    else:
+        phase_shifted_arr = phase_data_shifted_1_arr
+
     return phase_shifted_arr
 
 # Convenience functions for working with pandas
@@ -866,3 +916,27 @@ def remove_sublist(ini_list, remove_list):
     :remove_list: list of elements to remove
     '''
     return [x for x in list(ini_list) if x not in remove_list]
+
+def get_range(data_arr, fract_range):
+    ''' Useful function for setting the range of axis/axes for plotting.
+
+        Sets the range to the range covered by the data + fract_range * range
+    '''
+    data_min = np.min(data_arr)
+    data_max = np.max(data_arr)
+
+    data_range = data_max-data_min
+    return [data_min - fract_range*data_range, data_max + fract_range*data_range]
+
+def reshape_axes(fig, axes, ncols, nrows):
+    ''' Reshapes the otherwise flat array of axes.
+
+    Very useful when one does not know beforehand the shape of the axes array needed. Notice, that the axes need to contain at least two elements
+    '''
+    gs = gridspec.GridSpec(nrows, ncols)
+    for i in range(nrows):
+        for j in range(ncols):
+            k = i+j*nrows
+            if k < len(axes):
+                axes[k].set_position(gs[k].get_position(fig))
+    return fig, axes

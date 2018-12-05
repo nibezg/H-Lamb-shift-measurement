@@ -8,7 +8,7 @@ import string
 import shutil
 import datetime
 
-sys.path.insert(0,"C:/Users/Helium1/Google Drive/Research/Lamb shift measurement/Code")
+sys.path.insert(0,"E:/Google Drive/Research/Lamb shift measurement/Code")
 
 from exp_data_analysis import *
 from fosof_data_set_analysis import *

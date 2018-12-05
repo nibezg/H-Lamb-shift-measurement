@@ -7,7 +7,10 @@ import scipy
 import sys
 import os
 import string
-sys.path.insert(0,"C:/Users/Helium1/Google Drive/Code/Python/Testing/Blah") #
+#sys.path.insert(0,"C:/Users/Helium1/Google Drive/Code/Python/Testing/Blah") #
+# For home
+sys.path.insert(0,"E:/Google Drive/Research/Lamb shift measurement/Code")
+
 from exp_data_analysis import *
 
 import re
@@ -18,14 +21,15 @@ import matplotlib.pyplot as plt
 import math
 
 import threading
-from Queue import Queue
+from queue import Queue
 
 # Package for wrapping long string to a paragraph
 import textwrap
 
-from Tkinter import *
-import ttk
-import tkMessageBox
+from tkinter import *
+from tkinter import ttk
+
+from tkinter import messagebox
 
 def update_exp_info_file(exp_time_stamp, analysis_done_Q=True, fully_acquired_Q=False, errors_Q=True):
     ''' Use this function if  during analysis one needs to update the analysis parameters for the given data set and write all of the experiment information to back to the file.
@@ -62,12 +66,13 @@ def fosof_analysis():
     data_file = 'data.txt'
 
     # Location where the analyzed experiment is saved
-    saving_folder_location = 'C:/Research/Lamb shift measurement/Data/FOSOF analyzed data sets'
+    saving_folder_location = 'E:/2017-10-17 Lamb Shift Measurement/Data/FOSOF analyzed data sets'
     # Analyzed data file name
     data_analyzed_file = 'data_analyzed v' + str(version_number) + '.txt'
 
     # File containing information on experiments. Stores all of the experiment parameters data and help to decide whether the data needs to be analyzed
-    exp_info_file_loc = 'C:\Research\Lamb shift measurement\Data\FOSOF analyzed data sets'
+    exp_info_file_loc = saving_folder_location
+
     exp_info_file_name = 'fosof_data_sets_info.csv'
 
     # A subset of columns in the data sets information file
@@ -86,7 +91,8 @@ def fosof_analysis():
     exp_fully_acquired_col: '[Boolean] Shows whether the data set has been fully acquired. Which is determined by the match between the amount of data expected from the data set and the amount of data available from the data set. Obviously it also checks if during any of these checks, there was more data available than expected (exception is raised in this case).'}
 
     # List of folder names of FOSOF experiments to analyze
-    exp_name_list_folder = 'C:/Research/Lamb shift measurement/Data/FOSOF analyzed data sets'
+    exp_name_list_folder = saving_folder_location
+
     exp_name_list_file = 'fosof_data_sets_list.csv'
 
     os.chdir(exp_name_list_folder)
@@ -102,7 +108,7 @@ def fosof_analysis():
         raise FosofAnalysisError('The file with FOSOF data set names has duplicated experiment names.')
     # -------------------------------------
 
-    exp_info_df_comments_string = string.join(map(lambda x: '# ' + x[0] + ' = ' + x[1], general_comments.items()), sep='\n')
+    exp_info_df_comments_string = '\n'.join(list(map(lambda x: '# ' + x[0] + ' = ' + x[1], general_comments.items())))
 
 
     # Perform data analysis for the list of the experiments. Stop the analysis, if the analysis has been interrupted.
@@ -503,7 +509,7 @@ def ask_quit():
     if analysis_in_process_Q == False:
         root.destroy()
     else:
-        if tkMessageBox.askokcancel("Quit", "Do you really want to quit without stopping the analysis first?"):
+        if messagebox.askokcancel("Quit", "Do you really want to quit without stopping the analysis first?"):
             root.destroy()
 
 if __name__ == '__main__':
@@ -556,3 +562,4 @@ if __name__ == '__main__':
 
     root.protocol("WM_DELETE_WINDOW", ask_quit)
     root.mainloop()
+#%%

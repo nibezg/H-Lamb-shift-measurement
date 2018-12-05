@@ -12,7 +12,11 @@ import pytz
 import datetime
 
 # For the lab
-sys.path.insert(0,"C:/Users/Helium1/Google Drive/Research/Lamb shift measurement/Code") #
+#sys.path.insert(0,"C:/Users/Helium1/Google Drive/Research/Lamb shift measurement/Code")
+
+# For home
+sys.path.insert(0,'E:/Google Drive/Research/Lamb shift measurement/Code')
+
 from exp_data_analysis import *
 from fosof_data_set_analysis import *
 import re
@@ -28,7 +32,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 #%%
 # Folder for storing the phase drift data
-analysis_data_folder = 'C:/Research/Lamb shift measurement/Data/Common-mode phase systematic study'
+analysis_data_folder = 'E:/Google Drive/Research/Lamb shift measurement/Data/Common-mode phase systematic study'
 
 
 # Phase drift data csv file
@@ -135,13 +139,15 @@ if len(exp_folder_name_to_analyze_list) > 0:
 
 else:
     print("No new experiments were found.")
-
 #%%
 # These data sets were acquired with the Box at atmospheric pressure. We do not want to look at this data.
 exp_folder_name_filtered_df = exp_folder_name_df.drop(index=[0, 1, 2, 7, 8, 9, 10])
 
+exp_params_filtered_df = exp_params_df.drop(exp_folder_name_df.iloc[[0, 1, 2, 7, 8, 9, 10]].values.flatten())
+#%%
 # Calculate the mean phase drift between 0 and pi configurations
 # Time zone where the data was acquired
+
 eastern_tz = pytz.timezone('US/Eastern')
 
 phase_drift_data_s_list = []
@@ -195,17 +201,18 @@ phase_shift_df = phase_shift_df * 1E3
 phase_shift_df.rename(columns={'Phase [Rad]': 'Phase [mrad]', 'Phase STDOM [Rad]': 'Phase STDOM [mrad]'}, inplace=True)
 phase_shift_df.rename(columns={'Phase Difference [Rad]': 'Phase Difference', 'Combiners I-R Phase Difference [Rad]': 'Combiners I-R Phase Difference'}, inplace=True)
 #%%
-# ==================
-# Organizing the data
-# ==================
+'''
+==================
+Organizing the data for 7 cm separation and 18 V/cm of the E field Amplitude inside the waveguides
+==================
+'''
 
 # Select the required experiments to match the required experiment parameters
 
-exp_folder_name_to_use_list = exp_params_df[(exp_params_df['Waveguide Separation [cm]'] == 7) & (exp_params_df['Configuration'] == '0') & (exp_params_df['Waveguide Electric Field [V/cm]'] == 18)].index.values
+exp_folder_name_to_use_list = exp_params_filtered_df[(exp_params_filtered_df['Waveguide Separation [cm]'] == 7) & (exp_params_df['Configuration'] == '0') & (exp_params_filtered_df['Waveguide Electric Field [V/cm]'] == 18)].index.values
 
 phase_shift_chosen_df = phase_shift_df.reset_index().set_index('Experiment Folder Name 0-config').loc[exp_folder_name_to_use_list].reset_index().drop(columns=['Experiment Folder Name 0-config']).set_index(['Waveguide Carrier Frequency [MHz]', 'Date']).sort_index()
 
-#%%
 sns.relplot(x='Waveguide Carrier Frequency [MHz]', y='Phase [mrad]', hue='Date', data=phase_shift_chosen_df['Phase Difference'].reset_index())
 
 plt.show()
@@ -213,9 +220,6 @@ plt.show()
 phase_shift_chosen_df.columns = phase_shift_chosen_df.columns.remove_unused_levels()
 
 phase_shift_chosen_avg_df = phase_shift_chosen_df.groupby(['Waveguide Carrier Frequency [MHz]']).aggregate(['mean', lambda x: np.std(x, ddof=1)/np.sqrt(x.shape[0])]).drop(columns=['Phase STDOM [mrad]'], level=1).rename(columns={'mean': 'Phase [mrad]', '<lambda>': 'Phase STDOM [mrad]'}).reorder_levels([1, 0, 2], axis='columns')['Phase [mrad]']
-#%%
-phase_shift_chosen_avg_df
-#%%
 
 data_df = phase_shift_chosen_avg_df['Phase Difference'].reset_index()
 
@@ -250,7 +254,7 @@ plt.show()
 # I model the FOSOF lineshape as the first-order polynomial crossing 910 MHz (defined as 0). The slope is taken as the average value of the slope obtained experimentally at given separation.
 
 # Waveguide separation [cm] and corresponding slope in Rad/MHz = mrad/kHz
-slope_dict = {4: 1/10.5, 5: 1/9, 6: 1/7.5, 7: 1/6.7, 8: 10**2}
+slope_dict = {4: 1/10.5, 5: 1/9, 6: 1/7.5, 7: 1/6.7}
 
 # Value by which to shift the frequencies [MHz]
 f_shift = 910
@@ -282,6 +286,8 @@ f0_shifted = -fosof_poly_fit_shift_params[1]/fosof_poly_fit_shift_params[0]
 freq_shift = (f0_shifted - f0) * 1E3
 print('Frequency shift [kHz]: ' + str(freq_shift))
 #%%
+np.mean(phase_shift_fit_func(x_arr))
+#%%
 # Average phase shift converting to frequency [kHz]
 av_shift = np.mean(phase_shift_fit_func(x_arr))/slope
 av_shift
@@ -290,17 +296,18 @@ fig, ax = plt.subplots()
 ax.scatter(x=f_arr, y=phase_arr)
 plt.show()
 #%%
-# ==================
-# Organizing the data for 7 cm separation and 8 V/cm of the E field Amplitude inside the waveguides
-# ==================
+'''
+==================
+Organizing the data for 7 cm separation and 8 V/cm of the E field Amplitude inside the waveguides
+==================
+'''
 
 # Select the required experiments to match the required experiment parameters
 
-exp_folder_name_to_use_list = exp_params_df[(exp_params_df['Waveguide Separation [cm]'] == 7) & (exp_params_df['Configuration'] == '0') & (exp_params_df['Waveguide Electric Field [V/cm]'] == 8)].index.values
+exp_folder_name_to_use_list = exp_params_filtered_df[(exp_params_filtered_df['Waveguide Separation [cm]'] == 7) & (exp_params_filtered_df['Configuration'] == '0') & (exp_params_filtered_df['Waveguide Electric Field [V/cm]'] == 8)].index.values
 
 phase_shift_chosen_df = phase_shift_df.reset_index().set_index('Experiment Folder Name 0-config').loc[exp_folder_name_to_use_list].reset_index().drop(columns=['Experiment Folder Name 0-config']).set_index(['Waveguide Carrier Frequency [MHz]', 'Date']).sort_index()
 
-#%%
 sns.relplot(x='Waveguide Carrier Frequency [MHz]', y='Phase [mrad]', hue='Date', data=phase_shift_chosen_df['Phase Difference'].reset_index())
 
 plt.show()
@@ -308,9 +315,6 @@ plt.show()
 phase_shift_chosen_df.columns = phase_shift_chosen_df.columns.remove_unused_levels()
 
 phase_shift_chosen_avg_df = phase_shift_chosen_df.groupby(['Waveguide Carrier Frequency [MHz]']).aggregate(['mean', lambda x: np.std(x, ddof=1)/np.sqrt(x.shape[0])]).drop(columns=['Phase STDOM [mrad]'], level=1).rename(columns={'mean': 'Phase [mrad]', '<lambda>': 'Phase STDOM [mrad]'}).reorder_levels([1, 0, 2], axis='columns')['Phase [mrad]']
-#%%
-phase_shift_chosen_avg_df
-#%%
 
 data_df = phase_shift_chosen_avg_df['Phase Difference'].reset_index()
 
@@ -319,6 +323,146 @@ y_data_arr = data_df['Phase [mrad]']
 y_data_std_arr = data_df['Phase STDOM [mrad]']
 
 poly_fit_params = np.polyfit(x=x_data_arr, y=y_data_arr, deg=4, w=1/y_data_std_arr**2)
+
+phase_shift_fit_func = np.poly1d(poly_fit_params)
+
+x_arr = np.linspace(np.min(x_data_arr), np.max(x_data_arr), 10*x_data_arr.shape[0])
+
+fig, axes = plt.subplots(2, 2)
+fig.set_size_inches(15, 10)
+
+axes[0, 0].plot(x_arr, phase_shift_fit_func(x_arr), color='blue')
+
+data_df.plot(kind='scatter', x='Waveguide Carrier Frequency [MHz]', y='Phase [mrad]', yerr='Phase STDOM [mrad]', ax=axes[0, 0])
+
+phase_shift_chosen_avg_df['Combiners I-R Phase Difference'].reset_index().plot(kind='scatter', x='Waveguide Carrier Frequency [MHz]', y='Phase [mrad]', yerr='Phase STDOM [mrad]', ax=axes[0, 1])
+
+phase_shift_chosen_avg_df['RF Combiner I Reference'].reset_index().plot(kind='scatter', x='Waveguide Carrier Frequency [MHz]', y='Phase [mrad]', yerr='Phase STDOM [mrad]', ax=axes[1, 0])
+
+phase_shift_chosen_avg_df['RF Combiner R Reference'].reset_index().plot(kind='scatter', x='Waveguide Carrier Frequency [MHz]', y='Phase [mrad]', yerr='Phase STDOM [mrad]', ax=axes[1, 1])
+
+plt.show()
+#%%
+'''
+==================
+Organizing the data for 4 cm separation and 8 V/cm of the E field Amplitude inside the waveguides
+==================
+'''
+
+# Select the required experiments to match the required experiment parameters
+exp_folder_name_to_use_list = exp_params_filtered_df[(exp_params_filtered_df['Waveguide Separation [cm]'] == 4) & (exp_params_filtered_df['Configuration'] == '0') & (exp_params_filtered_df['Waveguide Electric Field [V/cm]'] == 8)].index.values
+
+phase_shift_chosen_df = phase_shift_df.reset_index().set_index('Experiment Folder Name 0-config').loc[exp_folder_name_to_use_list].reset_index().drop(columns=['Experiment Folder Name 0-config']).set_index(['Waveguide Carrier Frequency [MHz]', 'Date']).sort_index()
+
+sns.relplot(x='Waveguide Carrier Frequency [MHz]', y='Phase [mrad]', hue='Date', data=phase_shift_chosen_df['Phase Difference'].reset_index())
+
+plt.show()
+#%%
+phase_shift_chosen_df.columns = phase_shift_chosen_df.columns.remove_unused_levels()
+
+phase_shift_chosen_avg_df = phase_shift_chosen_df.groupby(['Waveguide Carrier Frequency [MHz]']).aggregate(['mean', lambda x: np.std(x, ddof=1)/np.sqrt(x.shape[0])]).drop(columns=['Phase STDOM [mrad]'], level=1).rename(columns={'mean': 'Phase [mrad]', '<lambda>': 'Phase STDOM [mrad]'}).reorder_levels([1, 0, 2], axis='columns')['Phase [mrad]']
+
+data_df = phase_shift_chosen_avg_df['Phase Difference'].reset_index()
+
+x_data_arr = data_df['Waveguide Carrier Frequency [MHz]']
+y_data_arr = data_df['Phase [mrad]']
+y_data_std_arr = data_df['Phase STDOM [mrad]']
+
+poly_fit_params = np.polyfit(x=x_data_arr, y=y_data_arr, deg=4, w=1/y_data_std_arr)
+
+phase_shift_fit_func = np.poly1d(poly_fit_params)
+
+x_arr = np.linspace(np.min(x_data_arr), np.max(x_data_arr), 10*x_data_arr.shape[0])
+
+fig, axes = plt.subplots(2, 2)
+fig.set_size_inches(15, 10)
+
+axes[0, 0].plot(x_arr, phase_shift_fit_func(x_arr), color='blue')
+
+data_df.plot(kind='scatter', x='Waveguide Carrier Frequency [MHz]', y='Phase [mrad]', yerr='Phase STDOM [mrad]', ax=axes[0, 0])
+
+phase_shift_chosen_avg_df['Combiners I-R Phase Difference'].reset_index().plot(kind='scatter', x='Waveguide Carrier Frequency [MHz]', y='Phase [mrad]', yerr='Phase STDOM [mrad]', ax=axes[0, 1])
+
+phase_shift_chosen_avg_df['RF Combiner I Reference'].reset_index().plot(kind='scatter', x='Waveguide Carrier Frequency [MHz]', y='Phase [mrad]', yerr='Phase STDOM [mrad]', ax=axes[1, 0])
+
+phase_shift_chosen_avg_df['RF Combiner R Reference'].reset_index().plot(kind='scatter', x='Waveguide Carrier Frequency [MHz]', y='Phase [mrad]', yerr='Phase STDOM [mrad]', ax=axes[1, 1])
+
+plt.show()
+#%%
+'''
+==================
+Organizing the data for 4 cm separation and 18 V/cm of the E field Amplitude inside the waveguides
+==================
+'''
+
+# Select the required experiments to match the required experiment parameters
+exp_folder_name_to_use_list = exp_params_filtered_df[(exp_params_filtered_df['Waveguide Separation [cm]'] == 4) & (exp_params_filtered_df['Configuration'] == '0') & (exp_params_filtered_df['Waveguide Electric Field [V/cm]'] == 18)].index.values
+
+phase_shift_chosen_df = phase_shift_df.reset_index().set_index('Experiment Folder Name 0-config').loc[exp_folder_name_to_use_list].reset_index().drop(columns=['Experiment Folder Name 0-config']).set_index(['Waveguide Carrier Frequency [MHz]', 'Date']).sort_index()
+
+sns.relplot(x='Waveguide Carrier Frequency [MHz]', y='Phase [mrad]', hue='Date', data=phase_shift_chosen_df['Phase Difference'].reset_index())
+
+plt.show()
+#%%
+phase_shift_chosen_df
+#%%
+phase_shift_chosen_df.columns = phase_shift_chosen_df.columns.remove_unused_levels()
+
+phase_shift_chosen_avg_df = phase_shift_chosen_df.groupby(['Waveguide Carrier Frequency [MHz]']).aggregate(['mean', lambda x: np.std(x, ddof=1)/np.sqrt(x.shape[0])]).drop(columns=['Phase STDOM [mrad]'], level=1).rename(columns={'mean': 'Phase [mrad]', '<lambda>': 'Phase STDOM [mrad]'}).reorder_levels([1, 0, 2], axis='columns')['Phase [mrad]']
+
+data_df = phase_shift_chosen_avg_df['Phase Difference'].reset_index()
+
+x_data_arr = data_df['Waveguide Carrier Frequency [MHz]']
+y_data_arr = data_df['Phase [mrad]']
+y_data_std_arr = data_df['Phase STDOM [mrad]']
+
+poly_fit_params = np.polyfit(x=x_data_arr, y=y_data_arr, deg=4, w=1/y_data_std_arr)
+
+phase_shift_fit_func = np.poly1d(poly_fit_params)
+
+x_arr = np.linspace(np.min(x_data_arr), np.max(x_data_arr), 10*x_data_arr.shape[0])
+
+fig, axes = plt.subplots(2, 2)
+fig.set_size_inches(15, 10)
+
+axes[0, 0].plot(x_arr, phase_shift_fit_func(x_arr), color='blue')
+
+data_df.plot(kind='scatter', x='Waveguide Carrier Frequency [MHz]', y='Phase [mrad]', yerr='Phase STDOM [mrad]', ax=axes[0, 0])
+
+phase_shift_chosen_avg_df['Combiners I-R Phase Difference'].reset_index().plot(kind='scatter', x='Waveguide Carrier Frequency [MHz]', y='Phase [mrad]', yerr='Phase STDOM [mrad]', ax=axes[0, 1])
+
+phase_shift_chosen_avg_df['RF Combiner I Reference'].reset_index().plot(kind='scatter', x='Waveguide Carrier Frequency [MHz]', y='Phase [mrad]', yerr='Phase STDOM [mrad]', ax=axes[1, 0])
+
+phase_shift_chosen_avg_df['RF Combiner R Reference'].reset_index().plot(kind='scatter', x='Waveguide Carrier Frequency [MHz]', y='Phase [mrad]', yerr='Phase STDOM [mrad]', ax=axes[1, 1])
+
+plt.show()
+#%%
+'''
+==================
+Organizing the data for 4 cm separation and 5 V/cm of the E field Amplitude inside the waveguides
+==================
+'''
+
+# Select the required experiments to match the required experiment parameters
+exp_folder_name_to_use_list = exp_params_filtered_df[(exp_params_filtered_df['Waveguide Separation [cm]'] == 4) & (exp_params_filtered_df['Configuration'] == '0') & (exp_params_filtered_df['Waveguide Electric Field [V/cm]'] == 5)].index.values
+
+phase_shift_chosen_df = phase_shift_df.reset_index().set_index('Experiment Folder Name 0-config').loc[exp_folder_name_to_use_list].reset_index().drop(columns=['Experiment Folder Name 0-config']).set_index(['Waveguide Carrier Frequency [MHz]', 'Date']).sort_index()
+
+sns.relplot(x='Waveguide Carrier Frequency [MHz]', y='Phase [mrad]', hue='Date', data=phase_shift_chosen_df['Phase Difference'].reset_index())
+
+plt.show()
+#%%
+phase_shift_chosen_df.columns = phase_shift_chosen_df.columns.remove_unused_levels()
+
+phase_shift_chosen_avg_df = phase_shift_chosen_df.groupby(['Waveguide Carrier Frequency [MHz]']).aggregate(['mean', lambda x: np.std(x, ddof=1)/np.sqrt(x.shape[0])]).drop(columns=['Phase STDOM [mrad]'], level=1).rename(columns={'mean': 'Phase [mrad]', '<lambda>': 'Phase STDOM [mrad]'}).reorder_levels([1, 0, 2], axis='columns')['Phase [mrad]']
+
+data_df = phase_shift_chosen_avg_df['Phase Difference'].reset_index()
+
+x_data_arr = data_df['Waveguide Carrier Frequency [MHz]']
+y_data_arr = data_df['Phase [mrad]']
+y_data_std_arr = data_df['Phase STDOM [mrad]']
+
+poly_fit_params = np.polyfit(x=x_data_arr, y=y_data_arr, deg=4, w=1/y_data_std_arr)
 
 phase_shift_fit_func = np.poly1d(poly_fit_params)
 

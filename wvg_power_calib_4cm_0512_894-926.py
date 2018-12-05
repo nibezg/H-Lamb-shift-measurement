@@ -8,7 +8,7 @@ import string
 import shutil
 import datetime
 
-sys.path.insert(0,"C:/Users/Helium1/Google Drive/Research/Lamb shift measurement/Code")
+sys.path.insert(0,"E:/Google Drive/Research/Lamb shift measurement/Code")
 
 from exp_data_analysis import *
 from fosof_data_set_analysis import *
@@ -253,7 +253,7 @@ surv_frac_vs_RF_power_fits_set_df.loc[rf_channel, rf_freq]
 rf_e_field_calib_df = wvg_calib_analysis.perform_power_calib()
 calib_av_df = wvg_calib_analysis.get_av_calib_data()
 #%%
-rf_e_field_ampl = 8.0
+rf_e_field_ampl = 5.0
 rf_channel = 'A'
 
 fig, axes = plt.subplots(nrows=1, ncols=4)
@@ -391,6 +391,8 @@ axes = wvg_calib_analysis_plus_half.get_calibration_plot(rf_channel, rf_e_field_
 
 plt.show()
 #%%
+
+#%%
 wvg_calib_analysis_plus_half.save_instance()
 #%%
 rf_e_field_ampl = 8.0
@@ -442,3 +444,4 @@ av_RF_power_calib_error_df
 wvg_calib_analysis.set_av_rf_power_calib_error(av_RF_power_calib_error_df)
 wvg_calib_analysis.save_instance()
 #%%
+av_RF_power_calib_error_df.plot(y='Mean Fractional Error [%]', yerr='Fractional Error STDOM [%]')

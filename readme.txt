@@ -1,11 +1,17 @@
 Code for analysis of the data for the n=2 Lamb Shift measurement is presented here.
 
+2018-12-05 (8:36)
+
+- Major changes. Added many new scripts. 
+- Almost all of the analysis is complete now. All of the code for obtaining the final answer is written.
+
 2018-10-10 (12:27)
 
 - Lots of changes to various codes. Better power calibration. Improved code for common-mode phase shift analysis, etc.
 
 
 2018-09-28 (15:07)
+
 - Improved the common_mode_phase_shift_analysis.py code. Now the analysis of data will be much faster, because the previously analyzed data is stored in a .csv file.
 
 

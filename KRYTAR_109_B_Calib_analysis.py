@@ -7,8 +7,9 @@ import os
 import string
 
 # For lab
-sys.path.insert(0,"C:/Users/Helium1/Google Drive/Research/Lamb shift measurement/Code")
-
+#sys.path.insert(0,"C:/Users/Helium1/Google Drive/Research/Lamb shift measurement/Code")
+# For Home
+sys.path.insert(0,"E:/Google Drive/Research/Lamb shift measurement/Code")
 import re
 import time
 import math
@@ -23,7 +24,10 @@ import matplotlib.pyplot as plt
 from ZX47_Calibration_analysis import *
 #%%
 # Path to the power detector calibration
-calib_folder_path = 'C:/Users/Helium1/Google Drive/Research/Lamb shift measurement/Data'
+#calib_folder_path = 'C:/Users/Helium1/Google Drive/Research/Lamb shift measurement/Data'
+
+# For Home
+calib_folder_path = 'E:/Google Drive/Research/Lamb shift measurement/Data'
 
 # KRYTAR 109B Power detector calibration folder name
 calib_folder = '170822-130101 - RF power detector calibration'
@@ -181,7 +185,7 @@ class KRYTAR109BCalibration(ZX4755LNCalibration):
         return x_data, y_data, y_std_data
 #%%
 # data_set = KRYTAR109BCalibration()
-# 
+#
 # # s_factor_multiple of 50 seems to give good smooth agreement with the data.
 # spl_smoothing_inverse, spl_calib_std = data_set.get_calib_curve()
 # x_data, y_data, y_std_data = data_set.get_spline_data_to_plot(100)

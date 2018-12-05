@@ -8,7 +8,7 @@ import string
 import shutil
 import datetime
 
-sys.path.insert(0,"C:/Users/Helium1/Google Drive/Research/Lamb shift measurement/Code")
+sys.path.insert(0,"E:/Google Drive/Research/Lamb shift measurement/Code")
 
 from exp_data_analysis import *
 from fosof_data_set_analysis import *
@@ -207,7 +207,7 @@ surv_frac_vs_RF_power_fits_set_df.loc[rf_channel, rf_freq]
 rf_e_field_calib_df = wvg_calib_analysis.perform_power_calib()
 calib_av_df = wvg_calib_analysis.get_av_calib_data()
 #%%
-rf_e_field_ampl = 8.0
+rf_e_field_ampl = 5.0
 rf_channel = 'A'
 
 fig, axes = plt.subplots(nrows=1, ncols=4)
@@ -235,7 +235,7 @@ wvg_calib_param_dict =    {
             'Fractional DC Offset': fract_DC_offset_half,
             'Minimum RF E Field Amplitude [V/cm]': 5,
             'Maximum RF E Field Amplitude [V/cm]': 27,
-            'Use Boundary Conditions': True,
+            'Use Boundary Conditions': False,
 			'Polynomial Fit Order': 3
                     }
 # We now calculate the calibration for the case when the fractional offset is 50% smaller.
@@ -299,7 +299,7 @@ wvg_calib_param_dict =    {
             'Fractional DC Offset': fract_DC_offset_plus_half,
             'Minimum RF E Field Amplitude [V/cm]': 5,
             'Maximum RF E Field Amplitude [V/cm]': 27,
-            'Use Boundary Conditions': True,
+            'Use Boundary Conditions': False,
 			'Polynomial Fit Order': 3
                         }
 

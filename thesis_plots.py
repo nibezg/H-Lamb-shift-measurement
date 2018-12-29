@@ -19,10 +19,32 @@ import scipy.interpolate
 import matplotlib.pyplot as plt
 from matplotlib.collections import PatchCollection
 from matplotlib.patches import Rectangle
+
+from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits.mplot3d import proj3d
+from matplotlib.patches import FancyArrowPatch
+import matplotlib.patches as mpatches
+
+
+class Arrow3D(FancyArrowPatch):
+
+    def __init__(self, xs, ys, zs, *args, **kwargs):
+        FancyArrowPatch.__init__(self, (0, 0), (0, 0), *args, **kwargs)
+        self._verts3d = xs, ys, zs
+
+    def draw(self, renderer):
+        xs3d, ys3d, zs3d = self._verts3d
+        xs, ys, zs = proj3d.proj_transform(xs3d, ys3d, zs3d, renderer.M)
+        self.set_positions((xs[0], ys[0]), (xs[1], ys[1]))
+        FancyArrowPatch.draw(self, renderer)
+
+
 #%%
 '''
 Proton radius data plot
 '''
+os.chdir('E:/Google Drive/Research/Lamb shift measurement/Thesis')
+
 p_rad_data_arr = np.array([0.8751, 0.8764, 0.879, 0.84087, 0.899, 0.877, 0.8335])
 p_rad_data_std_arr = np.array([0.0061, 0.0089, 0.011, 0.00039, 0.059, 0.013, 0.0095])
 y_data_arr = np.array([1, 3, 2, 2.5, 4, 1.5, 3.5])
@@ -68,67 +90,15 @@ ax.annotate(xy=(p_size_df.loc['$\mu \mathrm{H}$ spectroscopy','Proton Radius [fm
 ax.text(p_size_df.loc['$\mu \mathrm{H}$ spectroscopy','Proton Radius [fm]']+arrow_length/2, 2.45, str(std_dev) + '$\sigma_{\mathrm{H}}$', fontsize=13, horizontalalignment='center')
 ax.set_xlabel('Proton RMS charge radius, $r_\mathrm{p}$ (fm)')
 
-os.chdir('E:/Google Drive/Research/Lamb shift measurement/Thesis')
-
 ax.set_xlim(right=0.92)
-
 
 #plt.savefig('proton_rad_data.pdf', format='pdf',  bbox_inches='tight')
 plt.show()
 #%%
-# p_size_df.loc['H spectroscopy','Proton Radius [fm]'] - p_size_df.loc['$\mu \mathrm{H}$ spectroscopy','Proton Radius [fm]']
-# #%%
-#
-# #%%
-# x_arr = [1, 1.01]
-# y_arr = [1, 1.01]
-#
-# fig, ax = plt.subplots()
-# ax.scatter(x_arr, y_arr, s=500, marker='v')
-# ax.errorbar(x_arr, y_arr, yerr=[0.1, 0.1], linestyle='', elinewidth=5, capsize=50, capthick=10, marker='.', markersize='10')
-# plt.show()
-# #%%
-# p_size_df.loc['H spectroscopy','Proton Radius [fm]']
-# #%%
-# arrow_length-head_length
-# #%%
-# arrow_length2 = p_size_df.loc['CODATA 2014','Proton Radius [fm]'] - p_size_df.loc['$\mu \mathrm{H}$ spectroscopy','Proton Radius [fm]']
-# std_dev2 = np.round(arrow_length2 / p_size_df.loc['CODATA 2014','Proton Radius STD [fm]'], 1)
-# std_dev2
-# #%%
-# 34*0.7
-# #%
-# 34*0.6
-# #%%
-# (46-10)*0.7
-# #%%
-# 46*0.6
-# #%%
-# ,
-# #%%
-# arrow_length2 = p_size_df.loc['1S-3S (2018)','Proton Radius [fm]'] - p_size_df.loc['2S-4P (2017)','Proton Radius [fm]']
-# std_dev2 = np.round(arrow_length2 / p_size_df.loc['1S-3S (2018)','Proton Radius STD [fm]'], 1)
-# std_dev2
-#%%
 ''' Plots for the qualitative explanation of the SOF technique.
 '''
-from mpl_toolkits.mplot3d import Axes3D
-#%%
-from matplotlib.patches import FancyArrowPatch
-from mpl_toolkits.mplot3d import proj3d
 
-
-class Arrow3D(FancyArrowPatch):
-
-    def __init__(self, xs, ys, zs, *args, **kwargs):
-        FancyArrowPatch.__init__(self, (0, 0), (0, 0), *args, **kwargs)
-        self._verts3d = xs, ys, zs
-
-    def draw(self, renderer):
-        xs3d, ys3d, zs3d = self._verts3d
-        xs, ys, zs = proj3d.proj_transform(xs3d, ys3d, zs3d, renderer.M)
-        self.set_positions((xs[0], ys[0]), (xs[1], ys[1]))
-        FancyArrowPatch.draw(self, renderer)
+os.chdir('E:/Google Drive/Research/Lamb shift measurement/Thesis/Spin precession')
 
 
 #%%
@@ -322,6 +292,13 @@ ax.set_zticklabels([])
 
 ax.set_axis_off()
 ax.view_init(elev = 10.0, azim = 30)
+
+bbox = fig.bbox_inches.from_bounds(2, 2, 6.7, 6.7)
+
+plt.subplots_adjust(top = 1, bottom = 0, right = 1, left = 0, hspace = 0, wspace = 0)
+
+plt.savefig('bloch_1.pdf', format='pdf', bbox_inches=bbox)
+
 plt.show()
 
 # Final angular momentum and rotating B field values. These are needed as the input for the next stage of the simulation
@@ -462,6 +439,13 @@ ax.set_zticklabels([])
 
 ax.set_axis_off()
 ax.view_init(elev = 10.0, azim = 30)
+
+bbox = fig.bbox_inches.from_bounds(2, 2, 6.7, 6.7)
+
+plt.subplots_adjust(top = 1, bottom = 0, right = 1, left = 0, hspace = 0, wspace = 0)
+
+plt.savefig('bloch_2.pdf', format='pdf', bbox_inches=bbox)
+
 plt.show()
 
 # Final angular momentum and rotating B field values. These are needed as the input for the next stage of the simulation
@@ -599,6 +583,13 @@ ax.set_zticklabels([])
 
 ax.set_axis_off()
 ax.view_init(elev = 10.0, azim = 30)
+
+bbox = fig.bbox_inches.from_bounds(2, 2, 6.7, 6.7)
+
+plt.subplots_adjust(top = 1, bottom = 0, right = 1, left = 0, hspace = 0, wspace = 0)
+
+plt.savefig('bloch_3.pdf', format='pdf', bbox_inches=bbox)
+
 plt.show()
 #%%
 ''' Precession of the angular momentum in the field of the second pulse out of phase with the first pulse
@@ -734,6 +725,13 @@ ax.set_zticklabels([])
 
 ax.set_axis_off()
 ax.view_init(elev = 10.0, azim = 30)
+
+bbox = fig.bbox_inches.from_bounds(2, 2, 6.7, 6.7)
+
+plt.subplots_adjust(top = 1, bottom = 0, right = 1, left = 0, hspace = 0, wspace = 0)
+
+plt.savefig('bloch_4.pdf', format='pdf', bbox_inches=bbox)
+
 plt.show()
 #%%
 ''' Performing numerical simulation for a range of rotating angular frequencies.
@@ -746,14 +744,15 @@ plt.show()
 # Magnitude of the constant B field [T]
 B0_mag = 1
 # Amplitude of the rotating B field [T]
-B_mag = 1
+B_mag = 0.1
 # Gyromagnetic ratio [C/kg]
 gamma = -1
 # Magnitude of the initial angular momentum vector [m^2*kg/s]
 L_mag = 1
 
-freq_mult_max = 3
-freq_steps = 401
+# Multiple of the 2 pi / T_sep factor
+freq_mult_max = 2
+freq_steps = 201
 freq_mult_arr = np.linspace(-freq_mult_max, freq_mult_max, freq_steps)
 
 # Phase difference between the pulses = phase of pulse 2 - phase of pulse 1 [rad]
@@ -774,7 +773,7 @@ tau = Thalfpi
 # Separation between the pulses [s]
 T_sep = 0.75 * T_per
 
-delta_omega_arr = 2 * np.pi / T_per * freq_mult_arr
+delta_omega_arr = 2 * np.pi / T_sep * freq_mult_arr
 
 # Frequency of rotation of the rotating B field [rad/s] in multiples of the larmor frequency for the static field. Notice the negative sign. It is needed here, so that when the Larmor frequency is equal to the rotation frequency, in the rotating reference frame in the direction of precession of the dipole due to the static field, the rotating field looks stationary.
 omega_fact = -1
@@ -794,7 +793,7 @@ for omega in omega_arr:
     t_f = tau
 
     # Time step for the numerical solver [s]
-    dt = 10**-3
+    dt = 10**-4
 
     n_steps = int(t_f/(dt))-1
     L_arr = np.zeros((n_steps, 3))
@@ -885,7 +884,6 @@ for omega in omega_arr:
 
 L_final_0_arr = L_final_arr
 #%%
-
 figure, ax = plt.subplots()
 
 ax.plot(omega_fact*omega_arr-omega_0, L_final_0_arr/L_mag)
@@ -1197,16 +1195,328 @@ plt.show()
 #%%
 figure, ax = plt.subplots()
 
-figure.set_size_inches(12,8)
+figure.set_size_inches(8,6)
 
 ax.plot(freq_mult_arr, L_final_not_free_arr/L_mag, color='black', linestyle='dashed')
 ax.plot(freq_mult_arr, L_final_0_arr/L_mag, color='blue')
 
 ax.set_xlabel('$(\omega-\omega_0)T/2\pi$')
-ax.set_ylabel('$\\vec{S_f} \cdot \\hat{z} \quad / \quad \\vert\\vec{S_i}\\vert$')
+ax.set_ylabel('$\\vec{S_f} \cdot \\hat{z}\;/\; \\vert\\vec{S_i}\\vert$')
 
 for item in ([ax.title, ax.xaxis.label, ax.yaxis.label] +
              ax.get_xticklabels() + ax.get_yticklabels()):
     item.set_fontsize(15)
+
+plt.show()
+#%%
+''' Extraction of the numerical solution performed in Mathematica.
+Mathematica code is much faster, because it uses some built-in solvers.
+'''
+
+lineshape_0_data_arr = np.loadtxt('lineshape_0.CSV', delimiter=',', dtype=np.float64)
+
+omega_fract_arr = lineshape_0_data_arr[:, 0]
+fract_Lz_arr = lineshape_0_data_arr[:, 1]
+
+fig = plt.figure()
+fig.set_size_inches(10, 12)
+
+ax = fig.add_subplot(211)
+
+ax.plot(omega_fract_arr, fract_Lz_arr, color='blue')
+
+lineshape_free_data_arr = np.loadtxt('lineshape_free.CSV', delimiter=',', dtype=np.float64)
+
+omega_fract_arr = lineshape_free_data_arr[:, 0]
+fract_Lz_free_arr = lineshape_free_data_arr[:, 1]
+
+ax.plot(omega_fract_arr, fract_Lz_free_arr, color='black', linestyle='dashed')
+
+ax.set_xticklabels([])
+ax.set_ylabel('$\\vec{S_f} \\cdot \\hat{z}\;/\; \\vert\\vec{S_i}\\vert$')
+for item in ([ax.title, ax.xaxis.label, ax.yaxis.label] +
+             ax.get_xticklabels() + ax.get_yticklabels()):
+    item.set_fontsize(15)
+
+# FOSOF phase
+fosof_ph_data_arr = np.loadtxt('FOSOF_phase.CSV', delimiter=',', dtype=np.float64)
+
+omega_fract_arr = fosof_ph_data_arr[:, 0]
+fract_Lz_arr = fosof_ph_data_arr[:, 1]
+
+fosof_fit = np.poly1d(np.polyfit(omega_fract_arr, fract_Lz_arr, 1))
+
+ax2 = fig.add_subplot(212)
+
+ax2.plot(omega_fract_arr, fract_Lz_arr, color='blue')
+
+ax2.plot([0, 0], [-35, 0], color='black', linestyle='dashed')
+ax2.plot([-5,0], [0, 0], color='black', linestyle='dashed')
+
+ax2.arrow(-1.8, 0, 0.1, 0, shape='full', width=0.6, head_length=0.3, color='black')
+
+ax2.arrow(0, -10, 0, -1, shape='full', width=0.05, head_length=3.3, color='black')
+
+ax2.set_xlabel('$(\omega-\omega_0)T \; / \; 2\pi$')
+ax2.set_ylabel('$\\theta$ (rad)')
+
+ax2.set_ylim(np.min(fract_Lz_arr), np.max(fract_Lz_arr))
+ax2.set_xlim(np.min(omega_fract_arr), np.max(omega_fract_arr))
+
+for item in ([ax2.title, ax2.xaxis.label, ax2.yaxis.label] +
+             ax2.get_xticklabels() + ax2.get_yticklabels()):
+    item.set_fontsize(15)
+
+ax2_twin = ax2.twinx()
+
+res_phase_arr = (fosof_fit(omega_fract_arr)-fract_Lz_arr)
+ax2_twin.plot(omega_fract_arr, res_phase_arr, color='green', linestyle='dashed')
+ax2_twin.set_ylim(np.min(res_phase_arr), np.max(res_phase_arr))
+ax2_twin.set_ylabel('Residual from the linear trend (rad)')
+
+for item in ([ax2_twin.title, ax2_twin.xaxis.label, ax2_twin.yaxis.label] +
+             ax2_twin.get_xticklabels() + ax2_twin.get_yticklabels()):
+    item.set_fontsize(15)
+
+ax2.tick_params(axis='y', colors='blue')
+ax2.yaxis.label.set_color('blue')
+ax2_twin.tick_params(axis='y', colors='green')
+ax2_twin.yaxis.label.set_color('green')
+ax2_twin.yaxis.labelpad = 10
+plt.savefig('u_lineshapes.pdf', format='pdf',  bbox_inches='tight')
+
+plt.show()
+#%%
+''' FOSOF/SOF sequence diagram
+'''
+
+os.chdir('E:/Google Drive/Research/Lamb shift measurement/Thesis/two-level atom')
+
+E0 = 1
+tau = 3
+T = 6
+dt = tau/400
+omega_E = 2 * np.pi * 1.5
+
+time_pulse_1_arr = np.linspace(0, tau, int(tau/dt))
+phi_01 = np.pi / 2
+E1_arr = E0 * np.cos(omega_E*time_pulse_1_arr+phi_01)
+
+time_T_arr = np.linspace(tau, T+tau, int(T/dt))
+ET_arr = 0 * time_T_arr
+
+time_pulse_2_arr = np.linspace(tau+T, T+tau+tau, int(tau/dt))
+phi_02 = -np.pi / 2
+E2_arr = E0 * np.cos(omega_E*time_pulse_2_arr+phi_02)
+
+fig = plt.figure()
+fig.set_size_inches(12, 6)
+
+ax = fig.add_subplot(111)
+
+alpha_to_use = 1
+
+ax.plot(time_pulse_1_arr, E1_arr, color='black')
+ax.plot(time_T_arr, ET_arr, color='black', alpha=alpha_to_use)
+ax.plot(time_pulse_2_arr, E2_arr, color='black')
+
+ax.set_ylim(-2*E0, 2*E0)
+
+x_min = -0.5
+x_max = T + 2 * tau + 0.5
+
+time_pulse_before_arr = np.linspace(-0.5, 0, int(0.5/dt))
+E_before_arr = 0 * time_pulse_before_arr
+
+time_pulse_after_arr = np.linspace(T+2*tau, T+2*tau+0.5, int((T+2*tau+0.5)/dt))
+E_after_arr = 0 * time_pulse_after_arr
+
+ax.plot(time_pulse_before_arr, E_before_arr, color='black', alpha=alpha_to_use)
+ax.plot(time_pulse_after_arr, E_after_arr, color='black', alpha=alpha_to_use)
+
+
+ax.set_xlim(x_min, x_max)
+
+ax.set_xticklabels([])
+ax.set_yticklabels([])
+
+ax.set_axis_off()
+
+# Drawing arrows
+
+# Vertical lines
+start_x = 0
+start_y = 0
+end_x = start_x
+end_y = 1.3
+ax.plot([start_x, end_x], [start_y, end_y], linestyle='dashed', color='black')
+
+start_x = tau
+start_y = 0
+end_x = start_x
+end_y = 1.3
+ax.plot([start_x, end_x], [start_y, end_y], linestyle='dashed', color='black')
+
+start_x = tau + T
+start_y = 0
+end_x = start_x
+end_y = 1.3
+ax.plot([start_x, end_x], [start_y, end_y], linestyle='dashed', color='black')
+
+start_x = 2 * tau + T
+start_y = 0
+end_x = start_x
+end_y = 1.3
+ax.plot([start_x, end_x], [start_y, end_y], linestyle='dashed', color='black')
+
+# Horizontal arrows
+start_x = 0
+start_y = 1.3
+end_x = tau
+end_y = 1.3
+arrow_1 = mpatches.FancyArrowPatch((start_x, start_y), (end_x, end_y), arrowstyle='<|-|>', mutation_scale=20, color='black')
+ax.add_patch(arrow_1)
+
+start_x = tau
+start_y = 1.3
+end_x = T + tau
+end_y = 1.3
+arrow_2 = mpatches.FancyArrowPatch((start_x, start_y), (end_x, end_y), arrowstyle='<|-|>', mutation_scale=20, color='black')
+ax.add_patch(arrow_2)
+
+start_x = T + tau
+start_y = 1.3
+end_x = T + 2 * tau
+end_y = 1.3
+arrow_3 = mpatches.FancyArrowPatch((start_x, start_y), (end_x, end_y), arrowstyle='<|-|>', mutation_scale=20, color='black')
+ax.add_patch(arrow_3)
+
+# Text labels
+text_x = tau / 2
+text_y = 1.3 + 0.2
+ax.text(x=text_x, y=text_y, s='$\\tau$', fontsize=15, horizontalalignment='center')
+
+text_x = tau + T / 2
+text_y = 1.3 + 0.2
+ax.text(x=text_x, y=text_y, s='$T$', fontsize=15, horizontalalignment='center')
+
+text_x = T + tau + tau / 2
+text_y = 1.3 + 0.2
+ax.text(x=text_x, y=text_y, s='$\\tau$', fontsize=15, horizontalalignment='center')
+
+# Time axis
+start_x = tau + 0.2 * tau
+start_y = -1.3
+end_x = start_x + 0.7 * T
+end_y = -1.3
+arrow_4 = mpatches.FancyArrowPatch((start_x, start_y), (end_x, end_y), arrowstyle='-|>', mutation_scale=30, color='black', linewidth=2)
+ax.add_patch(arrow_4)
+
+text_x = start_x + (end_x - start_x) / 2
+text_y = -1.3 + 0.2
+ax.text(x=text_x, y=text_y, s='Time', fontsize=15, horizontalalignment='center')
+
+plt.savefig('pulse_sequence.pdf', format='pdf',  bbox_inches='tight')
+
+plt.show()
+#%%
+''' Extraction of the FOSOF/SOF lineshapes obtained in Mathematica for the n=2 Lamb shift, since the Mathematica has already symbolic solution typed into it.
+'''
+os.chdir('E:/Google Drive/Research/Lamb shift measurement/Thesis/two-level atom')
+
+lineshape_SOF_data_arr = np.loadtxt('lineshape_SOF_atom.CSV', delimiter=',', dtype=np.float64)
+
+delta_freq_arr = lineshape_SOF_data_arr[:, 0]
+fract_pop_arr = lineshape_SOF_data_arr[:, 1] * 1E3
+
+fig = plt.figure()
+fig.set_size_inches(10, 12)
+
+ax = fig.add_subplot(211)
+
+ax.plot(delta_freq_arr, fract_pop_arr, color='blue')
+
+ax.set_xticklabels([])
+ax.set_ylabel('$(\\rho_{11}^{\\pi}-\\rho_{11}^0) \\times 10^{-3}$')
+
+for item in ([ax.title, ax.xaxis.label, ax.yaxis.label] +
+             ax.get_xticklabels() + ax.get_yticklabels()):
+    item.set_fontsize(15)
+
+ax.tick_params(axis='y', colors='blue')
+ax.yaxis.label.set_color('blue')
+
+lineshape_free_data_arr = np.loadtxt('lineshape_free_atom.CSV', delimiter=',', dtype=np.float64)
+
+delta_freq_arr = lineshape_free_data_arr[:, 0]
+fract_pop_arr = lineshape_free_data_arr[:, 1]
+
+ax_twin = ax.twinx()
+ax_twin.plot(delta_freq_arr, fract_pop_arr, color='black', linestyle='dashed')
+
+ax_twin.set_ylabel('$\\rho_{11}$')
+
+for item in ([ax_twin.title, ax_twin.xaxis.label, ax_twin.yaxis.label] +
+             ax_twin.get_xticklabels() + ax_twin.get_yticklabels()):
+    item.set_fontsize(15)
+
+# FOSOF phase
+fosof_ph_data_arr = np.loadtxt('FOSOF_phase_atom.CSV', delimiter=',', dtype=np.float64)
+
+delta_freq_arr = fosof_ph_data_arr[:, 0]
+theta_arr = fosof_ph_data_arr[:, 1]
+
+fosof_fit = np.poly1d(np.polyfit(delta_freq_arr, theta_arr, 1))
+
+ax2 = fig.add_subplot(212)
+
+ax2.plot(delta_freq_arr, theta_arr, color='blue')
+
+ax2.plot([0, 0], [-35, 0], color='black', linestyle='dashed')
+ax2.plot([-80,0], [0, 0], color='black', linestyle='dashed')
+
+start_x = -40
+start_y = 0
+end_x = -35
+end_y = 0
+arrow_FOSOF_1 = mpatches.FancyArrowPatch((start_x, start_y), (end_x, end_y), arrowstyle='-|>', mutation_scale=30, color='black', linewidth=2)
+
+ax2.add_patch(arrow_FOSOF_1)
+
+start_x = 0
+start_y = -5.5
+end_x = 0
+end_y = -4
+arrow_FOSOF_2 = mpatches.FancyArrowPatch((start_x, start_y), (end_x, end_y), arrowstyle='-|>', mutation_scale=30, color='black', linewidth=2)
+
+ax2.add_patch(arrow_FOSOF_2)
+
+ax2.set_xlabel('$f-f_0$ (MHz)')
+ax2.set_ylabel('$\\theta$ (rad)')
+
+ax2.set_ylim(np.min(theta_arr), np.max(theta_arr))
+ax2.set_xlim(np.min(delta_freq_arr), np.max(delta_freq_arr))
+
+for item in ([ax2.title, ax2.xaxis.label, ax2.yaxis.label] +
+             ax2.get_xticklabels() + ax2.get_yticklabels()):
+    item.set_fontsize(15)
+
+ax2_twin = ax2.twinx()
+
+res_phase_arr = (fosof_fit(delta_freq_arr)-theta_arr)
+ax2_twin.plot(delta_freq_arr, res_phase_arr, color='green', linestyle='dashed')
+ax2_twin.set_ylim(np.min(res_phase_arr), np.max(res_phase_arr))
+ax2_twin.set_ylabel('Residual from the linear trend (rad)')
+
+for item in ([ax2_twin.title, ax2_twin.xaxis.label, ax2_twin.yaxis.label] +
+             ax2_twin.get_xticklabels() + ax2_twin.get_yticklabels()):
+    item.set_fontsize(15)
+
+ax2.tick_params(axis='y', colors='blue')
+ax2.yaxis.label.set_color('blue')
+ax2_twin.tick_params(axis='y', colors='green')
+ax2_twin.yaxis.label.set_color('green')
+ax2_twin.yaxis.labelpad = 10
+plt.savefig('atom_lineshapes.pdf', format='pdf',  bbox_inches='tight')
 
 plt.show()

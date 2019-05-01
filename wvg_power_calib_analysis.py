@@ -7,12 +7,17 @@ import os
 import string
 import shutil
 
-# For lab
-#sys.path.insert(0,"C:/Users/Helium1/Google Drive/Research/Lamb shift measurement/Code")
-# For home
-sys.path.insert(0,"E:/Google Drive/Research/Lamb shift measurement/Code")
+path_data_df = pd.read_csv(filepath_or_buffer='path_data.csv', delimiter=',', comment='#', header=[0], skip_blank_lines=True, index_col=[0])
 
-saving_folder_location = 'E:/Google Drive/Research/Lamb shift measurement/Data/Waveguide calibration'
+code_folder_path = path_data_df.loc['Code Folder'].values[0].replace('\\', '/')
+fosof_analyzed_data_folder_path = path_data_df.loc['FOSOF Analyzed Data Folder'].values[0].replace('\\', '/')
+wvg_calib_data_folder_path = path_data_df.loc['Waveguide Calibration Folder'].values[0].replace('\\', '/')
+krytar109B_pwr_det_calib_folder_path = path_data_df.loc['KRYTAR 109 B Power Detector Calibration Data Folder'].values[0].replace('\\', '/')
+sim_data_folder_path = path_data_df.loc['Simulation Data Folder'].values[0].replace('\\', '/')
+
+sys.path.insert(0, code_folder_path)
+
+saving_folder_location = wvg_calib_data_folder_path
 
 from exp_data_analysis import *
 #from fosof_data_set_analysis import *
@@ -1021,6 +1026,7 @@ class WaveguideCalibrationAnalysis():
         f = open(self.analysis_data_file_name, 'rb')
         loaded_dict = pickle.load(f)
         f.close()
+
         self.__dict__.update(loaded_dict)
         print('The class instance has been loaded')
 
@@ -1053,3 +1059,12 @@ class WaveguideCalibrationAnalysis():
         os.chdir(self.saving_folder_location)
 
         print('The class instance has been saved')
+#%%
+# os.chdir(r'C:\Users\Helium1\Google Drive\Research\Lamb shift measurement\Data\Waveguide calibration\20180327T4E49.87f908-912')
+# analysis_data_file_name = '20180327T4E49.87f908-912r1.8fo0.03v0.1.pckl'
+# #%%
+# f = open(analysis_data_file_name, 'rb')
+# #%%
+# loaded_dict = pickle.load(f)
+# #%%
+# f.close()

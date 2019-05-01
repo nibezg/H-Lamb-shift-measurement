@@ -17,13 +17,20 @@ import matplotlib.pyplot as plt
 
 import copy
 
-sys.path.insert(0,"C:/Users/Helium1/Google Drive/Research/Lamb shift measurement/Code")
-#sys.path.insert(0,'E:/Google Drive/Research/Lamb shift measurement/Code')
+path_data_df = pd.read_csv(filepath_or_buffer='path_data.csv', delimiter=',', comment='#', header=[0], skip_blank_lines=True, index_col=[0])
+
+code_folder_path = path_data_df.loc['Code Folder'].values[0].replace('\\', '/')
+fosof_analyzed_data_folder_path = path_data_df.loc['FOSOF Analyzed Data Folder'].values[0].replace('\\', '/')
+wvg_calib_data_folder_path = path_data_df.loc['Waveguide Calibration Folder'].values[0].replace('\\', '/')
+krytar109B_pwr_det_calib_folder_path = path_data_df.loc['KRYTAR 109 B Power Detector Calibration Data Folder'].values[0].replace('\\', '/')
+sim_data_folder_path = path_data_df.loc['Simulation Data Folder'].values[0].replace('\\', '/')
+
+sys.path.insert(0, code_folder_path)
 
 from exp_data_analysis import *
 #%%
 # Path to the folder that stores FOSOF simulation files
-sim_data_path = 'C:/Users/Helium1/Google Drive/Research/Lamb shift measurement/Data/Simulation data'
+sim_data_path = sim_data_folder_path
 #sim_data_path = 'E:/Google Drive/Research/Lamb shift measurement/Data/Simulation data'
 
 # Old Simulation path that did not average phases between the quenching cavities and the SOF waveguides.
@@ -417,9 +424,8 @@ class FOSOFSimulation():
 
         The first step can be performed once, and the resulting fits can be stored as an object. And for each FOSOF experiment we can load this saved object and use it to perform the step 2 and 3. The steps 2 and 3 can be performed really quickly. It actually seems to be more time consuming to check the object for whether the steps 2 and 3 have been previously performed for each required frequency. Thus it is easier to simply recalculate steps 2 and 3 for each acquired FOSOF data set separately then to have it stored in the object and then perform the search that checks whether the required data is present in the object for each FOSOF data set.
     '''
-    # Patj to the blind offset file
-    blind_offset_path = 'D:/Google Drive/Research/Lamb shift measurement/Data/Simulation data'
-    #blind_offset_path = 'E:/Google Drive/Research/Lamb shift measurement/Data/Simulation data'
+    # path to the blind offset file
+    blind_offset_path = sim_data_folder_path
 
     blind_offset_file_name = 'blind-20150113.npy'
 
@@ -429,10 +435,7 @@ class FOSOFSimulation():
         self.version_number = 0.1
 
         # Location for storing the analysis folders
-        #self.saving_folder_location = 'E:/Google Drive/Research/Lamb shift measurement/Data/Simulation data'
-        self.saving_folder_location = 'D:/Google Drive/Research/Lamb shift measurement/Data/Simulation data'
-
-        #self.saving_folder_location = 'C:/Users/Helium1/Google Drive/Research/Lamb shift measurement/Data/Simulation data'
+        self.saving_folder_location = sim_data_folder_path
 
         self.fosof_sim_data_folder_name = 'FOSOF_sim_data_analysis'
 
@@ -1078,7 +1081,9 @@ class FOSOFSimulation():
 
         fosof_phase_df = self.phase_vs_e_field_poly_fit_df.loc[self.freq_arr, ['Polynomial Fit Function']].transform(lambda col: list(map(lambda x: x(e_field_ampl**2), col))).rename(columns={'Polynomial Fit Function': 'Phase [Rad]'})
 
-        self.interp_fosof_lineshape_param_s = self.calc_fosof_res_freq(fosof_phase_df.reset_index()).append(np.max(np.abs(self.get_fosof_interpolation_unc().loc[self.fosof_sim_info_chosen_df.index])))
+        chosen_sim_data_diff_df = self.get_fosof_interpolation_unc().reset_index().set_index('Simulation Key').loc[self.fosof_sim_info_chosen_df.index].set_index('Off-axis Distance [mm]', append=True).sort_index()
+
+        self.interp_fosof_lineshape_param_s = self.calc_fosof_res_freq(fosof_phase_df.reset_index()).append(np.max(np.abs(chosen_sim_data_diff_df)))
 
         return self.interp_fosof_lineshape_param_s
 
@@ -1161,12 +1166,32 @@ class FOSOFSimulation():
 
             print('The class instance has been saved')
 #%%
-# fosof_sim_data = FOSOFSimulation(load_Q=False)
+# fosof_sim_data = FOSOFSimulation(load_Q=True)
 # #%%
 # fosof_sim_data_df = fosof_sim_data.load_fosof_sim_data()
+# #%%
+# sim_name = 'FOSOF-04-08-16-3223-003'
+# freq_arr = fosof_sim_data_df.loc[sim_name].set_index('Off-axis Distance [mm]', append=True).loc[(sim_name, 1.414)]['Frequency [MHz]'].values
+# phase_arr = fosof_sim_data_df.loc[sim_name].set_index('Off-axis Distance [mm]', append=True).loc[(sim_name, 1.414)]['Phase [Rad]'].values
+# fit_coeff = np.polyfit(freq_arr, phase_arr, 1)
+# -fit_coeff[1]/fit_coeff[0]
+# #%%
+# sim_name = 'FOSOF-04-08-16-3223-004'
+# freq_arr = fosof_sim_data_df.loc[sim_name].set_index('Off-axis Distance [mm]', append=True).loc[(sim_name, 1.414)]['Frequency [MHz]'].values
+# phase_arr = fosof_sim_data_df.loc[sim_name].set_index('Off-axis Distance [mm]', append=True).loc[(sim_name, 1.414)]['Phase [Rad]'].values
+# fit_coeff = np.polyfit(freq_arr, phase_arr, 1)
+# -fit_coeff[1]/fit_coeff[0]
+# #%%
+# sim_name = 'FOSOF-04-08-16-3223-001'
+# freq_arr = fosof_sim_data_df.loc[sim_name].set_index('Off-axis Distance [mm]', append=True).loc[(sim_name, 1.414)]['Frequency [MHz]'].values
+# phase_arr = fosof_sim_data_df.loc[sim_name].set_index('Off-axis Distance [mm]', append=True).loc[(sim_name, 1.414)]['Phase [Rad]'].values
+# fit_coeff = np.polyfit(freq_arr, phase_arr, 1)
+# -fit_coeff[1]/fit_coeff[0]
+#
+# #%%
 # off_axis_poly_fit_df = fosof_sim_data.get_off_axis_func()
 #
-# residuals_df, residuals_fosof_sim_data_df = fosof_sim_data.select_off_axis_large_residuals(min_residual=0.335, max_residual=0.38)
+# residuals_df, residuals_fosof_sim_data_df = fosof_sim_data.select_off_axis_large_residuals(min_residual=0.135, max_residual=0.3)
 # #%%
 # fosof_sim_data.residuals_off_axis_df.shape[0]
 # #%%
@@ -1174,7 +1199,7 @@ class FOSOFSimulation():
 #
 # axes = fosof_sim_data.get_off_axis_data_plots(axes)
 #
-# fig.set_size_inches(8*2,8*fosof_sim_data.residuals_off_axis_df.index.values.shape[0])
+# fig.set_size_inches(8*2, 8*fosof_sim_data.residuals_off_axis_df.index.values.shape[0])
 #
 # plt.show()
 # #%%
@@ -1192,14 +1217,16 @@ class FOSOFSimulation():
 # zero_crossing_vs_off_axis_dist_df = fosof_sim_data.get_off_axis_dist_fosof_res_freq()
 #
 # max_zero_cross_diff_vs_off_axis_dist = fosof_sim_data.get_max_zero_cross_diff_vs_off_axis_dist()
-#
 # #%%
-#
+# off_axis_dist_arr
+# #%%
+# zero_crossing_vs_off_axis_dist_df
+# #%%
 # # Here we determine the combined quality of the interpolation used for the off-axis distance, the RF E Field dependence, and RF frequency. For each combination of the off-axis distance, E field amplitude, speed, and waveguide separation, the FOSOF phases are calculated using the interpolated functions and the zero-crossing is determined. The difference between the zero-crossings determined from the simulation data and the interpolated data is reported.
 # zero_crossing_diff_df = fosof_sim_data.calc_fosof_interpolation_unc()
 #
 # #%%
-# # Resonante frequency deviations for simulations
+# # Resonant frequency deviations for simulations
 # df = zero_crossing_diff_df[['Resonant Frequency Deviation [kHz]']].join(fosof_sim_data.fosof_sim_info_df[['Old Simulation']])
 # #%%
 # df[df['Old Simulation'] == False][['Resonant Frequency Deviation [kHz]']].iloc[0:60]
@@ -1221,20 +1248,21 @@ class FOSOFSimulation():
 #
 # #fosof_sim_data.save_instance(rewrite_Q=True)
 # #%%
-# freq_arr = np.linspace(908, 912, 41)
+# freq_arr = np.linspace(908, 912, 3)
 # sim_params_dict = { 'Frequency Array [MHz]': freq_arr,
 #                     'Waveguide Separation [cm]': 4,
 #                     'Accelerating Voltage [kV]': 49.86,
-#                     'Off-axis Distance [mm]': 1.6}
+#                     'Off-axis Distance [mm]': 0.8}
 #
 # zero_crossing_vs_off_axis_dist_chosen_df, fosof_sim_info_chosen_df = fosof_sim_data.filter_fosof_sim_set(sim_params_dict)
 #
 # phase_vs_e_field_poly_fit_df = fosof_sim_data.get_e_field_func()
 # #%%
 #
-#
+# 5.35
+# 3.4
 # #%%
-# e_field_ampl = 18
+# e_field_ampl = 5
 # zero_cross_params_s = fosof_sim_data.calc_interp_FOSOF_lineshape_params(e_field_ampl)
 # zero_cross_params_s
 # #%%
@@ -1283,3 +1311,15 @@ class FOSOFSimulation():
 # axes[0, 0].set_xlim(0,1200)
 # #axes[0, 0].set_ylim(0.2,0.3)
 # plt.show()
+# #%%
+# fosof_sim_data_info_df = fosof_sim_data.fosof_sim_info_df.copy()
+# #%%
+# fosof_sim_data_info_new_df = fosof_sim_data_info_df[fosof_sim_data_info_df['Old Simulation'] == False]
+# #%%
+# fosof_sim_data_info_new_df
+# # #%%
+# # fosof_sim_data.zero_crossing_sim_df.reset_index().set_index('Simulation Key').loc[fosof_sim_data_info_new_df.index].set_index('Off-axis Distance [mm]', append=True)
+# # #%%
+# # fosof_sim_data.zero_crossing_sim_df
+# #%%
+# fosof_sim_data.get_fosof_interpolation_unc().sort_index().reset_index().set_index('Simulation Key').loc[fosof_sim_data_info_new_df.index].set_index('Off-axis Distance [mm]', append=True)

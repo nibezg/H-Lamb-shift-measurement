@@ -5,10 +5,19 @@ import sys
 import os
 import string
 import shutil
-# For lab
-#sys.path.insert(0,"C:/Users/Helium1/Google Drive/Research/Lamb shift measurement/Code")
-# For home
-sys.path.insert(0,"E:/Google Drive/Research/Lamb shift measurement/Code")
+
+path_data_df = pd.read_csv(filepath_or_buffer='path_data.csv', delimiter=',', comment='#', header=[0], skip_blank_lines=True, index_col=[0])
+
+code_folder_path = path_data_df.loc['Code Folder'].values[0].replace('\\', '/')
+fosof_analyzed_data_folder_path = path_data_df.loc['FOSOF Analyzed Data Folder'].values[0].replace('\\', '/')
+wvg_calib_data_folder_path = path_data_df.loc['Waveguide Calibration Folder'].values[0].replace('\\', '/')
+krytar109B_pwr_det_calib_folder_path = path_data_df.loc['KRYTAR 109 B Power Detector Calibration Data Folder'].values[0].replace('\\', '/')
+
+fosof_for_analysis_folder_path = path_data_df.loc['FOSOF Analyzed Data Folder For Analysis'].values[0].replace('\\', '/')
+
+
+sys.path.insert(0, code_folder_path)
+
 from exp_data_analysis import *
 from KRYTAR_109_B_Calib_analysis import *
 import re
@@ -37,10 +46,7 @@ import wvg_power_calib_analysis
 import pickle
 #%%
 # Location where the analyzed experiment is saved
-# Home location
-saving_folder_location = 'E:/2017-10-17 Lamb Shift Measurement/Data/FOSOF analyzed data sets'
-# Lab location
-#saving_folder_location = 'C:/Research/Lamb shift measurement/Data/FOSOF analyzed data sets'
+saving_folder_location = fosof_for_analysis_folder_path
 
 # File containing parameters and comments about all of the data sets.
 exp_info_file_name = 'fosof_data_sets_info.csv'
@@ -58,7 +64,7 @@ data_analyzed_file_name = 'data_analyzed v' + str(raw_data_analyzed_version_numb
 analyzed_data_folder = 'Data Analysis ' + str(version_number)
 
 # Waveguide RF power calibration analyzed data folder path
-wvg_power_calib_data_folder_path = 'E:/Google Drive/Research/Lamb shift measurement/Data/Waveguide calibration'
+wvg_power_calib_data_folder_path = wvg_calib_data_folder_path
 
 wvg_power_calib_info_file_name = 'Waveguide_calibration_info.csv'
 
@@ -73,7 +79,7 @@ wvg_calib_info_df['End Date'] = pd.to_datetime(wvg_calib_info_df['End Date'])
 # File for storing externally written Proton Deflector measured voltages
 exp_pd_volt_file_name = 'fosof_exp_list_PD_voltage.csv'
 
-os.chdir(saving_folder_location)
+os.chdir(fosof_analyzed_data_folder_path)
 exp_pd_volt_df = pd.read_csv(filepath_or_buffer=exp_pd_volt_file_name, delimiter=',', comment='#', header=0, skip_blank_lines=True, index_col=0)
 
 pd_volt_col_name = 'Proton Deflector Voltage [V]'
@@ -337,6 +343,35 @@ class DataSetFOSOF():
             # B field scan analysis data
             if self.data_set_type_s['B Field Scan'] and self.b_field_analysis_allowed_Q:
                 self.fosof_av_phase_B_field_df = None
+
+            self.pre_910_av_difference_df = None
+
+    def select_portion_of_data(self):
+        ''' Use this function only when in need of selecting a specific portion of the experimet data (self.exp_data_frame) only.
+
+        Exactly what data needs to be selected is specified in the function body on a case-by-case basis.
+        '''
+
+        if self.exp_folder_name == '180406-223148 - FOSOF Acquisition 910 onoff CGX pressure change - pi config, 18 V per cm PD 120V, P_CGX change':
+
+            print('Selecting first four repeats of the data. Note that this is only for the data set: ')
+            print('180406-223148 - FOSOF Acquisition 910 onoff CGX pressure change - pi config, 18 V per cm PD 120V, P_CGX change')
+
+            self.exp_data_frame = self.exp_data_frame.loc[([1, 2, 3, 4], slice(None)), slice(None)]
+
+        if self.exp_folder_name == '180407-183451 - FOSOF Acquisition 910 onoff CGX pressure change - pi config, 18 V per cm PD 120V, P_CGX change':
+
+            print('Selecting first eight repeats of the data. Note that this is only for the data set: ')
+            print('180407-183451 - FOSOF Acquisition 910 onoff CGX pressure change - pi config, 18 V per cm PD 120V, P_CGX change')
+
+            self.exp_data_frame = self.exp_data_frame.loc[[1, 2, 3, 4, 5, 6, 7, 8]]
+
+        if self.exp_folder_name == '180414-155007 - FOSOF Acquisition 910 onoff CGX pressure change - 0 config, 18 V per cm PD 120V, P_CGX change':
+
+            print('Selecting first six repeats of the data. Note that this is only for the data set: ')
+            print('180414-155007 - FOSOF Acquisition 910 onoff CGX pressure change - 0 config, 18 V per cm PD 120V, P_CGX change')
+
+            self.exp_data_frame = self.exp_data_frame.loc[[1, 2, 3, 4, 5, 6]]
 
     def get_analysis_data_object_file_name(self, beam_rms_rad):
         ''' Get name of the analysed data object
@@ -769,10 +804,30 @@ class DataSetFOSOF():
                             warning_mssg = warning_mssg + '\nPossibly for some traces the noise in the signal was too large during the data acqusition. There is no compelling reason to remove these indeces from the dataframe containing phase differences, except that Phase Averaging will not work properly.'
 
                         else:
-                            warning_mssg = warning_mssg + 'There seems to be something wrong with the data acquisition. For some traces we might have an unlikely combination of large signal noise, RF generator not outputting correct power, or Keithley multimeter not functioning well. One needs to closely examine the data set.'
+                            # n = number of indeces
+                            # n_low_SNR > n_rf_power_outliers
+                            # In this case the correction for rf power cannot be performed, because later on there will be phase values with NaN values.
+                            warning_mssg = warning_mssg + 'There are more traces, corresponding to low SNR, than the traces related to the outlying power values in the rf system. There seems to be something wrong with the data acquisition. For some traces we might have an unlikely combination of large signal noise, RF generator not outputting correct power, or Keithley multimeter not functioning well. One needs to closely examine the data set. However, it is best to remove the data, corresponding to the rf power outliers'
+                            phase_diff_data_df = phase_diff_data_df.drop(rf_system_power_outlier_df.index)
+                            self.phase_diff_data_filtered_Q = True
+
+                            os.chdir(code_folder_path)
+                            f = open('weird_data_set_list.txt', "a+")
+                            f.write(self.exp_folder_name + '\n')
+                            f.close()
 
                 else:
-                    warning_mssg = warning_mssg + 'There seems to be something wrong with the data acquisition. For some traces we might have an unlikely combination of large signal noise, RF generator not outputting correct power, or Keithley multimeter not functioning well. One needs to closely examine the data set.'
+                    # n = number of indeces
+                    # n_low_SNR < n_rf_power_outliers
+                    # In this case the correction for rf power cannot be performed, because later on there will be phase values with NaN values.
+                    warning_mssg = warning_mssg + 'There are LESS traces, corresponding to low SNR, than the traces related to the outlying power values in the rf system. There seems to be something wrong with the data acquisition. For some traces we might have an unlikely combination of large signal noise, RF generator not outputting correct power, or Keithley multimeter not functioning well. One needs to closely examine the data set. However, it is best to remove the data, corresponding to the rf power outliers'
+                    phase_diff_data_df = phase_diff_data_df.drop(rf_system_power_outlier_df.index)
+                    self.phase_diff_data_filtered_Q = True
+
+                    os.chdir(code_folder_path)
+                    f = open('weird_data_set_list.txt', "a+")
+                    f.write(self.exp_folder_name + '\n')
+                    f.close()
 
                 self.err_warn_df = self.err_warn_df.append(pd.Series({'Message': warning_mssg}, name='Low SNR'))
 
@@ -815,6 +870,44 @@ class DataSetFOSOF():
 
             phase_diff_shifted_data_df = self.phase_diff_data_df.copy()
             phase_diff_shifted_data_df.loc[slice(None), (slice(None), slice(None), 'Fourier Phase [Rad]')] = phase_shifted_df
+
+            # Sometimes, because of the data filtering (based on the RF power detector outlying values (for the rf system) or the low SNR values), it is possible sometimes to have averaging sets of data for given Configuration setting to have only single row in them. In this case, the standard deviation of the averaging set cannot be determined, which messes up the standard deviation determination of the A-B, which in turn also gives NaN values for the standard deviation of the pooled standard deviation for the repeat. Eventually this does not allow for proper calculation of the lineshape. Therefore these averaging sets need to be removed.
+
+            # Group the data appropriately
+            phase_data_grouped_for_average = phase_diff_shifted_data_df['RF Combiner I Reference', 'First Harmonic'].groupby(averaging_set_grouping_list)
+
+            # df, whose index needs to be removed
+            df_to_remove = pd.DataFrame()
+
+            for group_name, df in phase_data_grouped_for_average:
+                if df.shape[0] == 1:
+                    df_to_remove = df_to_remove.append(df)
+
+            if df_to_remove.shape[0] > 0:
+                print('Averaging sets were find with the "Configuration" setting that has only a single row. These averaging sets are removed. See comments in the average_av_sets() method.')
+                # If, for instance, we find that the specific averaging set, with the waveguide configuration set to 'B', has only a single element in it, then we would want to remove the corresponding 'A' configuration as well. The code bellow achieves this.
+                config_arr = df_to_remove.index.get_level_values('Configuration').values
+
+                conf_reverse_arr = config_arr.copy()
+
+                conf_reverse_arr[config_arr == 'B'] = 'A'
+                conf_reverse_arr[config_arr == 'A'] = 'B'
+
+                df_to_remove_other_config = df_to_remove.copy().reset_index()
+                df_to_remove_other_config['Configuration'] = conf_reverse_arr
+                df_to_remove_other_config = df_to_remove_other_config.set_index(df_to_remove.index.names)
+
+                # drop_duplicates() method is needed, if we have an unlikely case that both 'A' and 'B' configurations for the same averaging set are already in the df_to_remove dataframe.
+                index_to_remove = df_to_remove.append(df_to_remove_other_config).reset_index(['Elapsed Time [s]', 'Average']).index.drop_duplicates()
+
+                print('Index that will be removed: ')
+                print(index_to_remove.values)
+
+                in_shape = phase_diff_shifted_data_df.shape[0]
+
+                # Removing the index from the array of phases
+                phase_diff_shifted_data_df = phase_diff_shifted_data_df.drop(index=phase_diff_shifted_data_df.reset_index(['Elapsed Time [s]', 'Average']).loc[index_to_remove].reset_index().set_index(phase_diff_shifted_data_df.index.names).index)
+                print('Number of elements, removed from the phase_diff_shifted_data_df dataframe: ' + str(in_shape - phase_diff_shifted_data_df.shape[0]))
 
             # Different types of averaging are performed below
             # The methods presented are not perfect: the Lyman-alpha detector frequency response at the offset frequency seems to have some DC dependence and thus the average phase changes with DC, thus making it quite impossible to perform any averaging if we have large DC changes (what is large? I do not know) between traces of the averaging set. Thus all of the methods here assume that this issue does not exist.
@@ -1305,89 +1398,98 @@ class DataSetFOSOF():
     def analyze_pre_910_switching(self):
         ''' Averaging phase data for pre-quenching 910 cavity toggling ON and OFF.
 
-        For B field scan and pre-quench 910 ON/OFF data set we are not taking 0 and pi configurations, since we are not interested in the absolute resonant frequencies, but their difference for different values of B field and pre-quench 910 state.
+        For B field scan and pre-quench 910 ON/OFF data set we are not taking 0 and pi configurations, since we are not interested in the absolute resonant frequencies, but their difference for different values of B field and pre-quench 910 state. In this case, the average phase difference (averaged across all of the frequencies) is equal to -T'*delta f_0, where T' is the slope of the FOSOF data set with pre-910 cavity ON, and delta f_0 = f_0' - f_0 = difference in the zero-crossing frequency determined with the pre-910 ON and OFF.
         Outputs:
         :pre_910_states_averaged_df: pd.DataFrame for pre-quench 910 ON phase - pre-quench 910 OFF phase for every RF frequency
         :pre_910_av_difference_df: pd.DataFrame for the phase difference for all RF carrier frequencies averaged together for all types of analysis method.
         '''
-        if self.pre_910_av_difference_df is None:
+        #if self.pre_910_av_difference_df is None:
 
-            if self.phase_A_minus_B_df is None:
-                self.cancel_out_freq_response()
+        if self.phase_A_minus_B_df is None:
+            self.cancel_out_freq_response()
 
-            # For pre-910 state switching data set.
+        # For pre-910 state switching data set.
 
-            # We want to calculate for every averaging set the difference in obtained phases for the case when pre-quench 910 state is ON and OFF.
+        # We want to calculate for every averaging set the difference in obtained phases for the case when pre-quench 910 state is ON and OFF.
 
-            pre_910_state_index_list = list(self.phase_A_minus_B_df.index.names)
-            pre_910_state_index_list.remove('Pre-Quench 910 State')
+        pre_910_state_index_list = list(self.phase_A_minus_B_df.index.names)
+        pre_910_state_index_list.remove('Pre-Quench 910 State')
 
-            phase_A_minus_B_for_pre_910_state_df = self.phase_A_minus_B_df.reset_index().set_index(pre_910_state_index_list).sort_index()
+        phase_A_minus_B_for_pre_910_state_df = self.phase_A_minus_B_df.reset_index().set_index(pre_910_state_index_list).sort_index()
 
-            phase_A_minus_B_for_pre_910_state_df.columns = phase_A_minus_B_for_pre_910_state_df.columns.remove_unused_levels()
+        phase_A_minus_B_for_pre_910_state_df.columns = phase_A_minus_B_for_pre_910_state_df.columns.remove_unused_levels()
 
-            pre_910_state_switching_df_group = phase_A_minus_B_for_pre_910_state_df.groupby(pre_910_state_index_list)
+        pre_910_state_switching_df_group = phase_A_minus_B_for_pre_910_state_df.groupby(pre_910_state_index_list)
 
-            def pre_910_state_subtract(df, columns_phase_std_dict, column_phase):
-                '''Perform phase subtraction of phases for pre-quench 910 state being 'on' and 'off' for each averaging set of data.
+        def pre_910_state_subtract(df, columns_phase_std_dict, column_phase):
+            '''Perform phase subtraction of phases for pre-quench 910 state being 'on' and 'off' for each averaging set of dataself.
 
-                Analysis is performed for the specified types of averaging set averaging.
-                '''
+            Analysis is performed for the specified averaging types of averaging set.
+            '''
 
-                df_on = df[df['Pre-Quench 910 State'] == 'on']
-                df_off = df[df['Pre-Quench 910 State'] == 'off']
+            df_on = df[df['Pre-Quench 910 State'] == 'on']
+            df_off = df[df['Pre-Quench 910 State'] == 'off']
 
-                phase_diff_df = (df_on.loc[slice(None), (slice(None), slice(None), slice(None), column_phase)] - df_off.loc[slice(None),(slice(None), slice(None), slice(None), column_phase)]).transform(convert_phase_to_2pi_range)
+            phase_diff_df = (df_on.loc[slice(None), (slice(None), slice(None), slice(None), column_phase)] - df_off.loc[slice(None),(slice(None), slice(None), slice(None), column_phase)]).transform(convert_phase_to_2pi_range)
 
-                std_df = np.sqrt(df_on.loc[slice(None),(slice(None), slice(None), slice(None), columns_phase_std_dict.keys())]**2 + df_off.loc[slice(None),(slice(None), slice(None), slice(None), columns_phase_std_dict.keys())]**2)
+            std_df = np.sqrt(df_on.loc[slice(None),(slice(None), slice(None), slice(None), columns_phase_std_dict.keys())]**2 + df_off.loc[slice(None),(slice(None), slice(None), slice(None), columns_phase_std_dict.keys())]**2)
 
-                std_df = std_df.rename(columns=columns_phase_std_dict, level='Data Field')
+            std_df = std_df.rename(columns=columns_phase_std_dict, level='Data Field')
 
-                return phase_diff_df.join(std_df).sort_index(axis='columns').iloc[0]
+            return phase_diff_df.join(std_df).sort_index(axis='columns').iloc[0]
 
-            columns_phase_std_dict = {
-                    'Phase STD [Rad]': 'Phase STD [Rad]',
-                    'Phase RMS Repeat STD [Rad]': 'Phase RMS Repeat STD [Rad]',
-                    'Phase RMS Averaging Set STD [Rad]': 'Phase RMS Averaging Set STD [Rad]'}
-            column_phase = 'Phase [Rad]'
+        columns_phase_std_dict = {
+                'Phase STD [Rad]': 'Phase STD [Rad]',
+                'Phase RMS Repeat STD [Rad]': 'Phase RMS Repeat STD [Rad]',
+                'Phase RMS Averaging Set STD [Rad]': 'Phase RMS Averaging Set STD [Rad]'}
+        column_phase = 'Phase [Rad]'
 
-            pre_910_states_subtracted_df = pre_910_state_switching_df_group.apply(self.pre_910_state_subtract, columns_phase_std_dict, column_phase)
+        pre_910_states_subtracted_df = pre_910_state_switching_df_group.apply(pre_910_state_subtract, columns_phase_std_dict, column_phase)
 
-            # We now have obtained for every RF frequency and repeat (and possibly other experiment parameters) phase difference between two states of pre-quench 910 cavity. We want now want to average for every RF frequency all of this data for all of the repeats.
+        # We now have obtained for every RF frequency and repeat (and possibly other experiment parameters) phase difference between two states of pre-quench 910 cavity. We want now want to average for every RF frequency all of this data for all of the repeats.
 
-            pre_910_states_subtracted_index_list = list(pre_910_states_subtracted_df.index.names)
-            pre_910_states_subtracted_index_list.remove('Repeat')
-            pre_910_states_subtracted_df_group = pre_910_states_subtracted_df.groupby(pre_910_states_subtracted_index_list)
+        pre_910_states_subtracted_index_list = list(pre_910_states_subtracted_df.index.names)
+        pre_910_states_subtracted_index_list.remove('Repeat')
+        pre_910_states_subtracted_df_group = pre_910_states_subtracted_df.groupby(pre_910_states_subtracted_index_list)
 
-            reference_type_list = ['RF Combiner I Reference', 'RF Combiner R Reference']
-            averaging_type_list = ['Phase Averaging', 'Phasor Averaging', 'Phasor Averaging Relative To DC']
+        reference_type_list = ['RF Combiner I Reference', 'RF Combiner R Reference']
+        averaging_type_list = ['Phase Averaging', 'Phasor Averaging', 'Phasor Averaging Relative To DC']
 
-            data_column = 'Phase [Rad]'
+        data_column = 'Phase [Rad]'
 
-            columns_dict = {
-                'Phase RMS Repeat STD': 'Phase RMS Repeat STD [Rad]',
-                'Phase RMS Averaging Set STD': 'Phase RMS Averaging Set STD [Rad]',
-                'Phase STD': 'Phase STD [Rad]'}
+        columns_dict = {
+            'Phase RMS Repeat STD': 'Phase RMS Repeat STD [Rad]',
+            'Phase RMS Averaging Set STD': 'Phase RMS Averaging Set STD [Rad]',
+            'Phase STD': 'Phase STD [Rad]'}
 
-            # Average the phases over all repeats for every Waveguide Carrier Frequency.
+        # Average the phases over all repeats for every Waveguide Carrier Frequency.
 
-            pre_910_states_averaged_df = pre_910_states_subtracted_df_group.apply(self.average_data_field, reference_type_list, self.harmonic_name_list, averaging_type_list, data_column, columns_dict, True)
+        pre_910_states_averaged_df = pre_910_states_subtracted_df_group.apply(self.average_data_field, reference_type_list, self.harmonic_name_list, averaging_type_list, data_column, columns_dict, True)
 
-            # This difference now needs to get divided by two, because while calculating RF CH A - RF CH B we left it without the division by 2.
+        # This difference now needs to get divided by two, because while calculating RF CH A - RF CH B we left it without the division by 2.
 
-            pre_910_states_averaged_df.loc[slice(None),(slice(None), slice(None), slice(None), slice(None), ['Weighted Mean'])] = pre_910_states_averaged_df.loc[slice(None),(slice(None), slice(None), slice(None), slice(None), ['Weighted Mean'])].transform(divide_and_minimize_phase, div_number=2)
+        pre_910_states_averaged_df.loc[slice(None),(slice(None), slice(None), slice(None), slice(None), ['Weighted Mean'])] = pre_910_states_averaged_df.loc[slice(None),(slice(None), slice(None), slice(None), slice(None), ['Weighted Mean'])].transform(divide_and_minimize_phase, div_number=2)
 
-            # Of course we have to divide the error by 2 as well.
-            pre_910_states_averaged_df.loc[slice(None),(slice(None), slice(None), slice(None), slice(None), ['Weighted STD'])] = pre_910_states_averaged_df.loc[slice(None),(slice(None), slice(None), slice(None), slice(None), ['Weighted STD'])]/2
+        # Of course we have to divide the error by 2 as well.
+        pre_910_states_averaged_df.loc[slice(None),(slice(None), slice(None), slice(None), slice(None), ['Weighted STD'])] = pre_910_states_averaged_df.loc[slice(None),(slice(None), slice(None), slice(None), slice(None), ['Weighted STD'])]/2
 
-            # We now finally average the deviations for all RF frequencies for each analysis method.
-            pre910_grouping_columns_list = list(pre_910_states_averaged_df.columns.names)
-            pre910_grouping_columns_list.remove('Data Field')
+        # We now finally average the deviations for all RF frequencies for each analysis method.
+        pre910_grouping_columns_list = list(pre_910_states_averaged_df.columns.names)
+        pre910_grouping_columns_list.remove('Data Field')
 
+        # If the Mass flow rate was changing = getting scanned. then the averaging of the difference is performed for each Mass Flow Rate setting
+        if not self.data_set_type_s['Charge Exchange Flow Rate Scan']:
             pre_910_av_difference_df = pre_910_states_averaged_df.groupby(level=pre910_grouping_columns_list, axis='columns').apply(lambda x: straight_line_fit_params(data_arr=x.xs(axis='columns',key='Weighted Mean', level='Data Field').values[:,0], sigma_arr=x.xs(axis='columns',key='Weighted STD', level='Data Field').values[:,0]))
+        else:
+            print('The Mass Flow Rate was getting scanned. Finding the average phase difference for each Mass Flow Rate setting separately...')
+            def av_910_diff(df):
+                av_difference_df = df.groupby(level=pre910_grouping_columns_list, axis='columns').apply(lambda x: straight_line_fit_params(data_arr=x.xs(axis='columns',key='Weighted Mean', level='Data Field').values[:,0], sigma_arr=x.xs(axis='columns',key='Weighted STD', level='Data Field').values[:,0]))
+                return av_difference_df
 
-            self.pre_910_states_averaged_df = pre_910_states_averaged_df
-            self.pre_910_av_difference_df = pre_910_av_difference_df
+            pre_910_av_difference_df = pre_910_states_averaged_df.reorder_levels([1, 0]).sort_index().groupby('Mass Flow Rate [sccm]').apply(av_910_diff)
+
+        self.pre_910_states_averaged_df = pre_910_states_averaged_df
+        self.pre_910_av_difference_df = pre_910_av_difference_df
 
         return self.pre_910_states_averaged_df, self.pre_910_av_difference_df
 
@@ -1531,6 +1633,7 @@ class DataSetFOSOF():
             calibration_folder_name, analysis_data_file_name = self.get_rf_pwr_calib_folder_name()
 
             # Load the respective waveguide power calibration analysis. It is assumed that the analysis has been performed before.
+            print('Loading the appropriate waveguide calibration file...')
             wvg_calib_analysis = wvg_power_calib_analysis.WaveguideCalibrationAnalysis(load_Q=True, calib_folder_name=calibration_folder_name, calib_file_name=analysis_data_file_name)
 
             # I will use only the calibration polynomial fits for E field vs RF power detector signal (Voltage) or its respective detected power. This is because the relationship is quite linear. This is not the case for the surviving fraction vs RF power detector signal + power.
@@ -1616,14 +1719,13 @@ class DataSetFOSOF():
             self.phase_diff_data_df = None
 
             phase_diff_df = self.get_phase_diff_data()
-
             # We have sometimes that there are one or two traces that have outlying RF power detector voltages, even though there are no issues with the SNR. Because of that we cannot perform correction for imperfect power. In this case it does not harm us to simply disregard these traces. Notice that that we can perform this filtering only if we had no filtering done before by the get_phase_diff_data() method, since it is possible to have the exact correspondence between the very low SNR and the RF power detector voltage outliers. In this case we get these traces removed in the get_phase_diff_data() method
 
             rf_pow_df, rf_system_power_outlier_df = self.get_rf_sys_pwr_det_data()
-
             # Check if the filtering was done before in the get_rf_sys_pwr_det_data() method and then if there are any power measurement outliers
             if not(self.phase_diff_data_filtered_Q) and (rf_system_power_outlier_df.shape[0] > 0):
                 snr_null_df = phase_diff_df.loc[phase_diff_df.loc[slice(None), ('RF Combiner I Reference', 'First Harmonic', 'SNR')].isnull()]
+                print(snr_null_df.shape[0])
                 # Check if there are no low SNR values
                 if snr_null_df.shape[0] == 0:
 
@@ -1755,17 +1857,17 @@ class DataSetFOSOF():
         os.chdir(self.exp_folder_name)
 
 #%%
-# #exp_folder_name='180506-123908 - FOSOF Acquisition - 0 config, 14 V per cm, PD ON 120 V,  914-918 MHz'
-# #exp_folder_name='180508-170626 - FOSOF Acquisition - 0 config, 14 V per cm, PD 120 V, 914-918 MHz'
+# exp_folder_name='180506-123908 - FOSOF Acquisition - 0 config, 14 V per cm, PD ON 120 V,  914-918 MHz'
+# exp_folder_name='180508-170626 - FOSOF Acquisition - 0 config, 14 V per cm, PD 120 V, 914-918 MHz'
 # exp_folder_name='180416-141245 - FOSOF Acquisition - 0 config, 14 V per cm PD ON 120 V'
-#exp_folder_name = '180706-124508 - FOSOF Acquisition - pi config, 18 V per cm PD 120 V, 49.86 kV, 908-912 MHz'
+# exp_folder_name = '180706-124508 - FOSOF Acquisition - pi config, 18 V per cm PD 120 V, 49.86 kV, 908-912 MHz'
 # exp_folder_name = '180319-161930 - FOSOF Acquisition - 0 config, 18 V per cm PD OFF'
 # exp_folder_name = '180327-122234 - FOSOF Acquisition - pi config, 5 V per cm PD ON 120 V'
-
-#exp_folder_name = '180405-220057 - FOSOF Acquisition 910 onoff CGX pressure change - pi config, 18 V per cm PD 120V, P_CGX change'
-
+#
+# exp_folder_name = '180405-220057 - FOSOF Acquisition 910 onoff CGX pressure change - pi config, 18 V per cm PD 120V, P_CGX change'
+#
 # exp_folder_name = '180706-124508 - FOSOF Acquisition - pi config, 18 V per cm PD 120 V, 49.86 kV, 908-912 MHz'
-
+#
 # exp_folder_name = '180327-101626 - FOSOF Acquisition - pi config, 8 V per cm PD ON 120 V'
 #
 # exp_folder_name = '180327-103559 - FOSOF Acquisition - 0 config, 8 V per cm PD ON 120 V'
@@ -1777,28 +1879,46 @@ class DataSetFOSOF():
 # exp_folder_name = '180430-140520 - FOSOF Acquisition - 0 config, 18 V per cm, PD 120 V'
 #
 # exp_folder_name = '180430-144824 - FOSOF Acquisition - pi config, 18 V per cm, PD 120 V'
-
+#
 # exp_folder_name = '180430-154020 - FOSOF Acquisition - pi config, 18 V per cm, PD 120 V'
 #
 # exp_folder_name = '180625-150533 - FOSOF Acquisition - 0 config, 18 V per cm PD OFF, 49.86 kV, 908-912 MHz'
-
-#exp_folder_name = '180625-172031 - FOSOF Acquisition - pi config, 18 V per cm PD OFF, 49.86 kV, 908-912 MHz'
-
-#exp_folder_name = '180625-140037 - FOSOF Acquisition - 0 config, 18 V per cm PD OFF, 49.86 kV, 908-912 MHz'
-
-#exp_folder_name = '180409-183122 - FOSOF Acquisition - pi config, 24 V per cm PD ON 120 V'
-
+#
+# exp_folder_name = '180625-172031 - FOSOF Acquisition - pi config, 18 V per cm PD OFF, 49.86 kV, 908-912 MHz'
+#
+# exp_folder_name = '180625-140037 - FOSOF Acquisition - 0 config, 18 V per cm PD OFF, 49.86 kV, 908-912 MHz'
+#
+# exp_folder_name = '180409-183122 - FOSOF Acquisition - pi config, 24 V per cm PD ON 120 V'
+#
 # exp_folder_name = '180416-110628 - FOSOF Acquisition - pi config, 14 V per cm PD ON 120 V'
 #
-# beam_rms_rad = 2.4
+# exp_folder_name = '180405-220057 - FOSOF Acquisition 910 onoff CGX pressure change - pi config, 18 V per cm PD 120V, P_CGX change'
+#
+# exp_folder_name = '180406-223148 - FOSOF Acquisition 910 onoff CGX pressure change - pi config, 18 V per cm PD 120V, P_CGX change'
+#
+# exp_folder_name = '180407-183451 - FOSOF Acquisition 910 onoff CGX pressure change - pi config, 18 V per cm PD 120V, P_CGX change'
+#
+# exp_folder_name = '180414-155007 - FOSOF Acquisition 910 onoff CGX pressure change - 0 config, 18 V per cm PD 120V, P_CGX change'
+#
+# exp_folder_name = '180528-112305 - FOSOF Acquisition - 0 config, 14 V per cm PD ON 37.7 V, 16.27 kV'
+#
+# exp_folder_name = '180506-123908 - FOSOF Acquisition - 0 config, 14 V per cm, PD ON 120 V,  914-918 MHz'
+#
+# exp_folder_name = '180506-123908 - FOSOF Acquisition - 0 config, 14 V per cm, PD ON 120 V,  914-918 MHz'
+#
+# beam_rms_rad = None
 # # List of beam  rms radius values for correcting the FOSOF phases using the simulations. Value of None corresponds to not applying the correction.
 # data_set = DataSetFOSOF(exp_folder_name=exp_folder_name, load_Q=False, beam_rms_rad_to_load=beam_rms_rad)
 #
 # # The power correction is performed only for the simple FOSOF data sets.
-# if data_set.get_exp_parameters()['Experiment Type'] != 'Waveguide Carrier Frequency Sweep':
-#     beam_rms_rad = None
-#     data_set = DataSetFOSOF(exp_folder_name=exp_folder_name, load_Q=True, beam_rms_rad_to_load=beam_rms_rad)
+# # if data_set.get_exp_parameters()['Experiment Type'] != 'Waveguide Carrier Frequency Sweep':
+# #     beam_rms_rad = None
+# #     data_set = DataSetFOSOF(exp_folder_name=exp_folder_name, load_Q=True, beam_rms_rad_to_load=beam_rms_rad)
 #
+# data_set.select_portion_of_data()
+# #%%
+# cgx_press_df = data_set.exp_data_frame[['Charge Exchange Pressure [torr]']].groupby('Mass Flow Rate [sccm]').aggregate(lambda x: np.mean(x))
+# #%%
 # fc_df = data_set.get_fc_data()
 # quenching_df = data_set.get_quenching_cav_data()
 # rf_pow_df, rf_system_power_outlier_df = data_set.get_rf_sys_pwr_det_data()
@@ -1807,15 +1927,328 @@ class DataSetFOSOF():
 #
 # comb_phase_diff_df = data_set.get_combiners_phase_diff_data()
 # digi_delay_df = data_set.get_inter_digi_delay_data()
-#
+# #%%
 # if beam_rms_rad is not None:
 #     data_set.correct_phase_diff_for_RF_power(beam_rms_rad)
-#
+# #%%
 # phase_diff_df = data_set.get_phase_diff_data()
 # phase_av_set_averaged_df = data_set.average_av_sets()
-# phase_A_minus_B_df, phase_freq_response_df = data_set.cancel_out_freq_response()
-# fosof_ampl_df, fosof_phase_df = data_set.average_FOSOF_over_repeats()
 #
+# phase_A_minus_B_df, phase_freq_response_df = data_set.cancel_out_freq_response()
+#
+# fosof_ampl_df, fosof_phase_df = data_set.average_FOSOF_over_repeats()
+# #%%
+# np.mean([0.054887, 0.093578, 0.014934, 6.276546-2*np.pi]) + 2*np.pi
+# np.std([0.054887, 0.093578, 0.014934, 6.276546-2*np.pi], ddof=1)
+# #%%
+# np.sqrt(np.sum(([0.054887, 0.093578, 0.014934, 6.276546-2*np.pi] - np.mean([0.054887, 0.093578, 0.014934, 6.276546-2*np.pi]))**2)/(3))
+# #%%
+# np.mean([5.764104, 5.707780, 5.842802, 5.802197])
+# np.std([5.764104, 5.707780, 5.842802, 5.802197], ddof=1)
+# #%%
+# np.sqrt((np.std([5.764104, 5.707780, 5.842802, 5.802197])**2*4 + np.std([0.054887, 0.093578, 0.014934, 6.276546-2*np.pi])**2*4)/6)/2
+# #%%
+# phase_diff_df['RF Combiner I Reference', 'First Harmonic']
+# #%%
+# 0.533656/2
+# #%%
+# fosof_phase_df['RF Combiner I Reference', 'First Harmonic', 'Phase Averaging']
+# #%%
+# 0.543154/2
+# #%%
+# phase_A_minus_B_df['RF Combiner I Reference', 'First Harmonic', 'Phase Averaging']/2
+# #%%
 # data_set.save_instance(rewrite_Q=True)
 # #%%
 # data_set.get_exp_parameters()
+# #%%
+# #%%
+# state = 'on'
+# digi_df.loc[(slice(None), slice(None), slice(None), state),('Detector', 'First Harmonic')].reset_index().plot(kind='scatter', x='Elapsed Time [s]', y='SNR')
+# #%%
+# digi_df.loc[(slice(None), slice(None), slice(None), state),('Detector', 'Other')].reset_index().plot(kind='scatter', x='Elapsed Time [s]', y='DC [V]')
+# #%%
+# pre_910_states_averaged_df, pre_910_av_difference_df = data_set.analyze_pre_910_switching()
+# #%%
+# pre_910_av_difference_df
+# #%%
+# pre_910_states_averaged_df
+# #%%
+# data_set.exp_data_frame.loc[[6]]
+# #%%
+# # List of columns by which to group the phase data for averaging set averaging
+# averaging_set_grouping_list = remove_sublist(ini_list=data_set.general_index.names, remove_list=['Average', 'Elapsed Time [s]'])
+# # List of columns by which to group the phase data for averaging set averaging
+# averaging_set_grouping_list = remove_sublist(ini_list=data_set.general_index.names, remove_list=['Average', 'Elapsed Time [s]'])
+#
+# phase_diff_group = data_set.phase_diff_data_df.groupby(averaging_set_grouping_list)
+# # For the subsequent analysis we assume that the phases of the phasors are normally distributed (for the Phase Averaging method), as well as A*cos(phi) and A*sin(phi) of the phasors - its x and y components, where A = amplitude of the given phasor and phi is its phase (for the Phasor Averaging and Phasor Averaging Relative To DC ). We also assume that the average amplitude of the phasors relative to DC are normally distributed (For Phasor Averaging Relative To DC, but not for calculation of the phase, but for estimation of FOSOF relative amplitude, when averaging amplitude relative to dc obtained from each averaging set for the given Waveguide carrier frequency).
+# # These assumptions is how we can use the formulas for the best estimate of the mean and standard deviation (with N-1 factor instead of N). If this is not true, then we might need to use different type of analysis.
+# # Notice that it seems that NONE of these quantities exactly normally distributed. But it seems to be intuitive, that if the signal is not too weak, then the errors have to be small and in that case the quantities are approximately normally distributed.
+#
+# # Shift all of the phase subsets, corresponding to their respective averaging set, in proper quadrants.
+#
+# phase_shifted_df = data_set.phase_diff_data_df.loc[slice(None), (slice(None),slice(None), 'Fourier Phase [Rad]')].groupby(averaging_set_grouping_list).transform(lambda x: phases_shift(x)[0])
+#
+# #phase_shifted_df = group_apply_transform(self.phase_diff_data_df.loc[slice(None), (slice(None),slice(None), 'Fourier Phase [Rad]')].groupby(averaging_set_grouping_list), lambda x: phases_shift(x)[0])
+#
+# phase_diff_shifted_data_df = data_set.phase_diff_data_df.copy()
+# phase_diff_shifted_data_df.loc[slice(None), (slice(None), slice(None), 'Fourier Phase [Rad]')] = phase_shifted_df
+# #%%
+# # Sometimes, because of the data filtering (based on the RF power detector outlying values (for the rf system) or the low SNR values), it is possible sometimes to have averaging sets of data for given Configuration setting to have only single row in them. In this case, the standard deviation of the averaging set cannot be determined, which messes up the standard deviation determination of the A-B, which in turn also gives NaN values for the standard deviation of the pooled standard deviation for the repeat. Eventually this does not allow for proper calculation of the lineshape. Therefore these averaging sets need to be removed.
+#
+# # Group the data appropriately
+# phase_data_grouped_for_average = phase_diff_shifted_data_df['RF Combiner I Reference', 'First Harmonic'].groupby(averaging_set_grouping_list)
+#
+# # df, whose index needs to be removed
+# df_to_remove = pd.DataFrame()
+#
+# for group_name, df in phase_data_grouped_for_average:
+#     if df.shape[0] == 1:
+#         df_to_remove = df_to_remove.append(df)
+#
+# print('Averaging sets were find with the "Configuration" setting that has only a single row. These averaging sets are removed. See comments in the average_av_sets() method.')
+# print(df_to_remove.index.values)
+# #%%
+# # If, for instance, we find that the specific averaging set, with the waveguide configuration set to 'B', has only a single element in it, then we would want to remove the corresponding 'A' configuration as well. The code bellow achieves this.
+# config_arr = df_to_remove.index.get_level_values('Configuration').values
+#
+# conf_reverse_arr = config_arr.copy()
+#
+# conf_reverse_arr[config_arr == 'B'] = 'A'
+# conf_reverse_arr[config_arr == 'A'] = 'B'
+#
+#
+# df_to_remove_other_config = df_to_remove.copy().reset_index()
+# df_to_remove_other_config['Configuration'] = conf_reverse_arr
+# df_to_remove_other_config = df_to_remove_other_config.set_index(df_to_remove.index.names)
+# #%%
+# df_to_remove_other_config
+# #%%
+# df_to_remove.append(df_to_remove_other_config)
+# #%%
+# df_to_remove.append(df_to_remove_other_config).reset_index(['Elapsed Time [s]', 'Average']).inde
+# #%%
+# # drop_duplicates() method is needed, if we have an unlikely case that both 'A' and 'B' configurations for the same averaging set are already in the df_to_remove dataframe.
+# index_to_remove = df_to_remove.append(df_to_remove_other_config).reset_index(['Elapsed Time [s]', 'Average']).index.drop_duplicates()
+# print(index_to_remove.values)
+# print(phase_diff_shifted_data_df.shape[0])
+# #%%
+# # Removing the index from the array of phases
+# phase_diff_shifted_data_df = phase_diff_shifted_data_df.drop(index=phase_diff_shifted_data_df.reset_index(['Elapsed Time [s]', 'Average']).loc[index_to_remove].reset_index().set_index(phase_diff_shifted_data_df.index.names).index)
+#
+# print(phase_diff_shifted_data_df.shape[0])
+# #%%
+# # Different types of averaging are performed below
+# # The methods presented are not perfect: the Lyman-alpha detector frequency response at the offset frequency seems to have some DC dependence and thus the average phase changes with DC, thus making it quite impossible to perform any averaging if we have large DC changes (what is large? I do not know) between traces of the averaging set. Thus all of the methods here assume that this issue does not exist.
+#
+# # Phase averaging
+# # Here we simply average the phases together. Amplitudes are not used. We can, however, calculate average Amplitude-to-DC ratio. This, when SNR is high, should, in principle, give better results, compared to phasor averaging, when DC is not stable during the averaging set, but changes from one trace to another.
+# def phase_angle_range(x):
+#     return (x.max()-x.min())*180/np.pi
+#
+# def phase_av(df):
+#     df.columns = df.columns.droplevel(['Source', 'Data Type'])
+#     df_grouped = df.groupby(averaging_set_grouping_list)
+#
+#     phases_averaged_df = df_grouped.aggregate({np.mean, np.std, lambda x: x.shape[0], phase_angle_range})
+#
+#     phases_averaged_df.columns = phases_averaged_df.columns.droplevel(0)
+#     return phases_averaged_df
+#
+#
+# phase_av_df = phase_diff_shifted_data_df.loc[slice(None), (slice(None), slice(None), 'Fourier Phase [Rad]')].groupby(level=['Source', 'Data Type'], axis='columns').apply(phase_av)
+#
+# phase_av_df.rename(columns={'mean': 'Phase [Rad]', 'std': 'Phase STD [Rad]', '<lambda>': 'Number Of Averaged Data Points', 'phase_angle_range': 'Range Of Phases [Deg]'}, inplace=True)
+#
+# # Phasor Averaging
+# # The assumption is that DC of the signal is the same for the duration of the averaging set. This way we can simply take the amplitudes and phases of the phasors and average them together to obtain a single averaged phasor.
+# def phasor_av(df):
+#     df.columns = df.columns.droplevel(['Source', 'Data Type'])
+#     col_list = ['Fourier Amplitude [V]', 'Fourier Phase [Rad]']
+#     phasor_av_df = group_agg_mult_col_dict(df, col_list, index_list=averaging_set_grouping_list, func=mean_phasor_aggregate)
+#
+#     return phasor_av_df
+#
+# def mean_phasor_aggregate(x, col_list):
+#     ''' Aggregating function that is used for 'group_agg_mult_col_dict' function.
+#
+#     The function must have the following line it it:
+#     data_dict = get_column_data_dict(x, col_list)
+#
+#     This basically creates a dictionary of values that are used as the input to the function.
+#
+#     Inputs:
+#     :x: data columns (from pandas)
+#     :col_list: list of columns used for combining the data into a single column.
+#     '''
+#     data_dict = get_column_data_dict(x, col_list)
+#     return mean_phasor(amp_arr=data_dict['Fourier Amplitude [V]'], phase_arr=data_dict['Fourier Phase [Rad]'])
+#
+# phasor_av_df = phase_diff_shifted_data_df.loc[slice(None), (slice(None), slice(None), ['Fourier Phase [Rad]','Fourier Amplitude [V]'])].groupby(level=['Source', 'Data Type'], axis='columns').apply(phasor_av)
+#
+# phasor_av_df.rename(columns={'Number Of Averaged Phasors': 'Number Of Averaged Data Points'}, inplace=True)
+#
+# # Adding SNR of the average phasor. This is just an estimate. We assume that the true SNR is the same for each phasor in the averaging set. Thus, we can calculate the mean of the SNR. However, averaging N phasors results in the SNR going up by a factor of N**0.5. The reason for this is that the resulting phasor has, real and imaginary components as the mean of the set {A_n_i * cos(phi_n_i), A_n_i * sin(phi_n_i)}, where phi_n_i is random phase, and A_n_i is the noise amplitude. In this case the amplitude of the resulting averaged phasor is smaller by a factor of N**0.5, assuming that A_n_i is a constant. I have tested this in Mathematica and it seems indeed to be the case, except that it seems to go down as about 1.1*N**0.5.
+#
+# # Calculate SNR of the averaging set.
+# def get_av_set_SNR(x):
+#     ''' Calculate SNR of the averaging set.
+#     '''
+#     # We are testing if there are any SNR values that are NaN. In this case it is assumed that the averaging set has large noise (or the signal of interest is not there)
+#     if x[x.isnull()].size == 0:
+#         mean_SNR_val = x.mean() * np.sqrt(x.size)
+#     else:
+#         mean_SNR_val = np.nan
+#     return mean_SNR_val
+#
+# av_set_SNR_df = phase_diff_shifted_data_df.loc[slice(None), (slice(None), slice(None), 'SNR')].groupby(averaging_set_grouping_list).aggregate(get_av_set_SNR)
+# # Combine the averaging set SNR with the averaged phasor data
+# phasor_av_df = phasor_av_df.join(av_set_SNR_df).sort_index(axis='columns')
+#
+#
+# # Phasor averaging relative to DC signal level.
+# # Same as phasor averaging, however instead of the phasor amplitudes we use amplitude-to-DC ratios for individual phasors. The reason for doing this is to eliminate the possibility of DC changing between traces for the given averaging set and skewing our average, because it would mean that the amplitude of the average phasor is not the same for all the phasors of the averaging set\. Now we should be insensitive to this, assuming that the mean phase (true phase) does not depend on DC. We still have the issue that the signal can be more or less noisy for different DC levels, therefore changing the standard deviation from trace to trace, hence making our formula for the best estimate of mean and standard deviation not entirely correct. (We assume Gaussian distribution here).
+#
+# phase_rel_to_dc_df = phase_diff_shifted_data_df.loc[slice(None), (slice(None), slice(None), ['Fourier Phase [Rad]','Fourier Amplitude [V]'])].copy()
+#
+# # Normalize to DC values
+# phase_rel_to_dc_df.loc[slice(None), (slice(None), slice(None), 'Fourier Amplitude [V]')] = phase_rel_to_dc_df.loc[slice(None), (slice(None), slice(None), 'Fourier Amplitude [V]')].transform(lambda x: x/phase_diff_shifted_data_df.loc[slice(None), ('RF Combiner I Reference', 'Other', 'DC [V]')].values)
+#
+#
+# phasor_rel_to_dc_av_df = phase_rel_to_dc_df.loc[slice(None), (slice(None), slice(None), ['Fourier Phase [Rad]','Fourier Amplitude [V]'])].groupby(level=['Source', 'Data Type'], axis='columns').apply(phasor_av)
+#
+# phasor_rel_to_dc_av_df.rename(columns={'Number Of Averaged Phasors': 'Number Of Averaged Data Points', 'Amplitude': 'Amplitude Relative To DC', 'Amplitude STD': 'Amplitude Relative To DC STD'}, inplace=True)
+#
+# phase_av_set_df = pd.concat([phase_av_df, phasor_av_df, phasor_rel_to_dc_av_df], axis='columns', keys=['Phase Averaging', 'Phasor Averaging', 'Phasor Averaging Relative To DC'], names=['Averaging Type'])
+#
+# phase_av_set_df = phase_av_set_df.swaplevel(axis='columns', i='Averaging Type', j='Source').swaplevel(axis='columns', i='Averaging Type', j='Data Type')
+#
+# # Change the names of the index levels. We basically just want to add the 'Data Field' level name (instead of None)
+# phase_av_set_df.columns.names = ['Source', 'Data Type', 'Averaging Type', 'Data Field']
+#
+# # We assume that for the given repeat, offset frequency, B Field, and pre-910 state all of the phasors obtained should have the same average SNR and thus the same true standard deviation for phase and amplitude at the given offset frequency. That is why we calculate the RMS quantities below. Now, this assumption might be wrong, especially when we have the beam that deteriorates over time or when the beam is such that it abruptly changes its mode of operation (we see it sometimes). When we have scan through offset frequencies and other additional parameters, then it takes even more time to acquire single repeat, thus the chance for the standard deviation to change is even larger. The additional assumption is that the RF scan range is small enough for there to be no appreciable variation in SNR with the RF frequency.
+#
+# rms_repeat_grouping_list = remove_sublist(ini_list=self.general_index.names, remove_list=['Elapsed Time [s]', 'Waveguide Carrier Frequency [MHz]', 'Average', 'Configuration'])
+#
+# phase_av_set_df_index_names_list = list(phase_av_set_df.index.names)
+#
+# phase_av_set_group = phase_av_set_df.groupby(rms_repeat_grouping_list)
+#
+# data_rms_std_df = phase_av_set_group.apply(lambda df: pd.Series(pooled_std(df.loc[slice(None), (slice(None), slice(None), slice(None), 'Phase STD [Rad]')].values
+# , df.loc[slice(None), (slice(None), slice(None), slice(None), 'Number Of Averaged Data Points')].values), index=df.loc[slice(None), (slice(None), slice(None), slice(None), 'Phase STD [Rad]')].columns))
+#
+# data_rms_std_df.rename(columns={'Phase STD [Rad]': 'Phase RMS Repeat STD [Rad]'}, level='Data Field', inplace=True)
+#
+# # We have to make sure that the data frames we are trying to join have the same index columns
+# phase_av_set_next_df = phase_av_set_df.reset_index().set_index(rms_repeat_grouping_list).join(data_rms_std_df, how='inner').sort_index(axis='columns').reset_index().set_index(phase_av_set_df_index_names_list)
+#
+# phase_av_set_next_df = phase_av_set_next_df.sort_index(axis='columns')
+# phase_av_set_next_df.columns = phase_av_set_next_df.columns.remove_unused_levels()
+#
+# # Another way to calculate the STD of the phases is to assume that the standard deviation is the same for the data for the same averaging set, which includes phases obtained for the same B field, pre-quench 910 state, repeat and waveguide carrier frequency. The configuration can be either A and B, of course.
+#
+# # Note that later on, when calculating A-B phases, the standard deviation that we get from combining this types of STD and simply STD determining for each configuration and averaging set, are exactly the same. Thus in a sense we are not getting any advantage of performing this type of calculation.
+# rms_av_set_grouping_list = remove_sublist(ini_list=self.general_index.names, remove_list=['Elapsed Time [s]', 'Average', 'Configuration'])
+#
+# phase_av_set_group = phase_av_set_next_df.groupby(rms_av_set_grouping_list)
+#
+# data_rms_std_df = phase_av_set_group.apply(
+#             lambda df: pd.Series(pooled_std(df.loc[slice(None), (slice(None), slice(None), slice(None), 'Phase STD [Rad]')].values
+#             , df.loc[slice(None), (slice(None), slice(None), slice(None), 'Number Of Averaged Data Points')].values), index=df.loc[slice(None), (slice(None), slice(None), slice(None), 'Phase STD [Rad]')].columns)
+#             )
+#
+# data_rms_std_df.rename(columns={'Phase STD [Rad]': 'Phase RMS Averaging Set STD [Rad]'}, level='Data Field', inplace=True)
+#
+# phase_av_set_next_df = phase_av_set_next_df.reset_index().set_index(rms_av_set_grouping_list).join(data_rms_std_df, how='inner').reset_index().set_index(phase_av_set_df_index_names_list).sort_index(axis='columns')
+#
+# phase_av_set_next_df.columns = phase_av_set_next_df.columns.remove_unused_levels()
+#
+#
+# # These calculations (determination of RMS STD) are also performed for the Amplitude Relative To DC. Here we expect that this quantity should have uncertainty independent of DC level, thus it makes sense to use it as relative FOSOF amplitude.
+#
+# # RMS Repeat STD
+# phase_av_set_group = phase_av_set_next_df.groupby(rms_repeat_grouping_list)
+#
+# data_rms_std_df = phase_av_set_group.apply(lambda df: pd.Series(pooled_std(df.loc[slice(None), (slice(None), slice(None), 'Phasor Averaging Relative To DC', 'Amplitude Relative To DC STD')].values
+# , df.loc[slice(None), (slice(None), slice(None), 'Phasor Averaging Relative To DC', 'Number Of Averaged Data Points')].values), index=df.loc[slice(None), (slice(None), slice(None), 'Phasor Averaging Relative To DC','Amplitude Relative To DC STD')].columns))
+#
+# data_rms_std_df.rename(columns={'Amplitude Relative To DC STD': 'Amplitude Relative To DC RMS Repeat STD'}, level='Data Field', inplace=True)
+#
+# phase_av_set_next_df = phase_av_set_next_df.reset_index().set_index(rms_repeat_grouping_list).join(data_rms_std_df, how='inner').reset_index().set_index(phase_av_set_df_index_names_list).sort_index(axis='columns')
+#
+# # RMS Averaging Set STD
+# phase_av_set_group = phase_av_set_df.groupby(rms_av_set_grouping_list)
+#
+# data_rms_std_df = phase_av_set_group.apply(lambda df: pd.Series(pooled_std(df.loc[slice(None), (slice(None), slice(None), 'Phasor Averaging Relative To DC', 'Amplitude Relative To DC STD')].values
+# , df.loc[slice(None), (slice(None), slice(None), 'Phasor Averaging Relative To DC', 'Number Of Averaged Data Points')].values), index=df.loc[slice(None), (slice(None), slice(None), 'Phasor Averaging Relative To DC','Amplitude Relative To DC STD')].columns)
+#             )
+#
+# data_rms_std_df.rename(columns={'Amplitude Relative To DC STD': 'Amplitude Relative To DC RMS Averaging Set STD'}, level='Data Field', inplace=True)
+#
+# phase_av_set_next_df = phase_av_set_next_df.reset_index().set_index(rms_av_set_grouping_list).join(data_rms_std_df, how='inner').reset_index().set_index(phase_av_set_df_index_names_list).sort_index(axis='columns')
+#
+# phase_av_set_next_df.columns = phase_av_set_next_df.columns.remove_unused_levels()
+#
+# # Calculate phase STD of the mean.
+#
+# column_sigma_list = [
+#         'Phase RMS Repeat STD [Rad]',
+#         #'Phase RMS STD With Covariance [Rad]',
+#         'Phase STD [Rad]',
+#         'Phase RMS Averaging Set STD [Rad]']#,
+#         #'Phase STD With Covariance [Rad]']
+#
+# column_mean_sigma_list = [
+#         'Phase RMS Repeat STDOM [Rad]',
+#         #'Phase Mean RMS STD With Covariance [Rad]',
+#         'Phase STDOM [Rad]',
+#         'Phase RMS Averaging Set STDOM [Rad]']#,
+#         #'Phase Mean STD With Covariance [Rad]']
+#
+# # List of STD's for Phasor Averaging Relative to DC method. We include Ampltude To DC STD's here.
+# column_sigma_rel_to_dc_list = [
+#         'Phase RMS Repeat STD [Rad]',
+#         #'Phase RMS STD With Covariance [Rad]',
+#         'Phase STD [Rad]',
+#         'Phase RMS Averaging Set STD [Rad]',
+#         'Amplitude Relative To DC RMS Repeat STD',
+#         #'Phase RMS STD With Covariance [Rad]',
+#         'Amplitude Relative To DC STD',
+#         'Amplitude Relative To DC RMS Averaging Set STD']#,
+#         #'Phase STD With Covariance [Rad]']
+#
+# column_mean_sigma_rel_to_dc_list = [
+#         'Phase RMS Repeat STDOM [Rad]',
+#         #'Phase Mean RMS STD With Covariance [Rad]',
+#         'Phase STDOM [Rad]',
+#         'Phase RMS Averaging Set STDOM [Rad]',
+#         'Amplitude Relative To DC RMS Repeat STDOM',
+#         #'Phase Mean RMS STD With Covariance [Rad]',
+#         'Amplitude Relative To DC STDOM',
+#         'Amplitude Relative To DC RMS Averaging Set STDOM']#,
+#         #'Phase Mean STD With Covariance [Rad]']
+#
+# averaging_type_list = ['Phase Averaging', 'Phasor Averaging', 'Phasor Averaging Relative To DC']
+#
+# n_averages_col_name = 'Number Of Averaged Data Points'
+#
+# for reference_type in phase_av_set_next_df.columns.levels[0].values:
+#     for harmonic_value in self.harmonic_name_list:
+#         for averaging_type in averaging_type_list:
+#
+#             if averaging_type == 'Phasor Averaging Relative To DC':
+#                 column_sigma_to_use_list = column_sigma_rel_to_dc_list
+#                 column_mean_sigma_to_use_list = column_mean_sigma_rel_to_dc_list
+#             else:
+#                 column_sigma_to_use_list = column_sigma_list
+#                 column_mean_sigma_to_use_list = column_mean_sigma_list
+#
+#             for column_sigma_index in range(len(column_sigma_to_use_list)):
+#                 phase_av_set_next_df[reference_type, harmonic_value, averaging_type, column_mean_sigma_to_use_list[column_sigma_index]] = phase_av_set_next_df[reference_type, harmonic_value, averaging_type, column_sigma_to_use_list[column_sigma_index]] / np.sqrt(phase_av_set_next_df[reference_type, harmonic_value, averaging_type, n_averages_col_name])
+#
+# phase_av_set_next_df = phase_av_set_next_df.sort_index(axis='columns')
+#
+# # Rename the levels representing RF Combiner as the phase reference and  Fourier harmonics
+# phase_av_set_next_df.columns.rename(names='Phase Reference Type', level='Source', inplace=True)
+# phase_av_set_next_df.columns.rename(names='Fourier Harmonic', level='Data Type', inplace=True)

@@ -7,7 +7,15 @@ import os
 import string
 import shutil
 
-sys.path.insert(0,"E:/Google Drive/Research/Lamb shift measurement/Code")
+path_data_df = pd.read_csv(filepath_or_buffer='path_data.csv', delimiter=',', comment='#', header=[0], skip_blank_lines=True, index_col=[0])
+
+code_folder_path = path_data_df.loc['Code Folder'].values[0].replace('\\', '/')
+fosof_analyzed_data_folder_path = path_data_df.loc['FOSOF Analyzed Data Folder'].values[0].replace('\\', '/')
+wvg_calib_data_folder_path = path_data_df.loc['Waveguide Calibration Folder'].values[0].replace('\\', '/')
+krytar109B_pwr_det_calib_folder_path = path_data_df.loc['KRYTAR 109 B Power Detector Calibration Data Folder'].values[0].replace('\\', '/')
+sim_data_folder_path = path_data_df.loc['Simulation Data Folder'].values[0].replace('\\', '/')
+
+sys.path.insert(0, code_folder_path)
 
 from exp_data_analysis import *
 from fosof_data_set_analysis import *
@@ -35,7 +43,7 @@ import textwrap
 # Folder containing acquired data table
 data_folder = "//LAMBSHIFT-PC/Google Drive/data"
 
-saving_folder_location = 'E:/Google Drive/Research/Lamb shift measurement/Data/Waveguide calibration'
+saving_folder_location = wvg_calib_data_folder_path
 
 # Experiment data file name
 data_file = 'data.txt'

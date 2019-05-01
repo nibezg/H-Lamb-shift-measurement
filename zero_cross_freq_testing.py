@@ -1,12 +1,3 @@
-'''
-2018-11-06
-
-After forming grouped experiments and making lists of fosof phases we can select the data corresponding to given Accelerating voltage, Proton deflector voltage, Waveguide separation and power, experiment type, Charge Exchange flow rate, group id, and, finally, range of RF frequencies. The zero-crossing frequency can be determined for each of these groups of data sets + other fit parameters. Essentially this script produces the most important set of data for the experiment, because it is the basis for the final analysis that is performed on the zero-crossing frequencies.
-
-Author: Nikita Bezginov
-'''
-
-
 from __future__ import division
 import numpy as np
 import pandas as pd
@@ -58,6 +49,14 @@ from tkinter import messagebox
 import wvg_power_calib_analysis
 
 #%%
+saving_folder_location = fosof_analyzed_data_folder_path
+
+fosof_phase_data_file_name = 'fosof_phase_grouped_list.csv'
+grouped_exp_param_file_name = 'grouped_exp_param_list.csv'
+
+os.chdir(saving_folder_location)
+
+#%%
 def get_freq_range_data(df, range_multiple):
     ''' We want to select the data in certain ranges symmetrically about the 'central' frequency of 910 MHz (blind offset is not taken into account). This way we can test if the zero-crossing is consistent for various ranges of data. This function returns the data corresponding the the chosen range_multiple value, where a value of 1 corresponds to roughly +-2 MHz range about 910 MHz, value of 2 is roughly 906-908 and 912-914 MHz, etc.
     '''
@@ -66,21 +65,12 @@ def get_freq_range_data(df, range_multiple):
     # In principle we want to take a look at the data in 2 MHz wide chunk on each side (left and right) of the central frequency. However, because of the up to 100 kHz jitters, we want to make sure that we can cover the additional 0.1 MHz on each side about 910 MHz. Since we took the data at most at 8 x the normal range = 32 MHz = 16 MHz in each direction, we need to make sure that we pick the range is such a way that we are 16.1 MHz on each direction at 8 x the range. This translates into the 2.0125 MHz range.
     side_range = 2.1
 
-    if range_multiple >= 1:
-        # Ranges of frequencies on each side to pick.
-        left_side = [central_freq-side_range*range_multiple, central_freq-side_range*range_multiple+side_range]
-        right_side = [side_range*range_multiple + central_freq-side_range, side_range*range_multiple + central_freq]
+    # Ranges of frequencies on each side to pick.
+    left_side = [central_freq-side_range*range_multiple, central_freq-side_range*range_multiple+side_range]
+    right_side = [side_range*range_multiple + central_freq-side_range, side_range*range_multiple + central_freq]
 
-        # Notice the <= and > signs. These are picked to have non-overlapping limits for different range multiples.
-        return df.loc[((df.index.get_level_values('Waveguide Carrier Frequency [MHz]') > left_side[0]) & (df.index.get_level_values('Waveguide Carrier Frequency [MHz]') <= left_side[1])) | ((df.index.get_level_values('Waveguide Carrier Frequency [MHz]') > right_side[0]) & (df.index.get_level_values('Waveguide Carrier Frequency [MHz]') <= right_side[1]))]
-
-    # In case the range multiple is less than 1 then we have a simple situation, when we just have the data around 910 MHz, without any gaps in the range.
-
-    else:
-        left_side = central_freq - range_multiple * side_range
-        right_side = central_freq + range_multiple * side_range
-
-        return df.loc[((df.index.get_level_values('Waveguide Carrier Frequency [MHz]') >= left_side) & (df.index.get_level_values('Waveguide Carrier Frequency [MHz]') <= right_side))]
+    # Notice the <= and > signs. These are picked to have non-overlapping limits for different range multiples.
+    return df.loc[((df.index.get_level_values('Waveguide Carrier Frequency [MHz]') > left_side[0]) & (df.index.get_level_values('Waveguide Carrier Frequency [MHz]') <= left_side[1])) | ((df.index.get_level_values('Waveguide Carrier Frequency [MHz]') > right_side[0]) & (df.index.get_level_values('Waveguide Carrier Frequency [MHz]') <= right_side[1]))]
 
 def calc_fosof_lineshape_param(x_data_arr, y_data_arr, y_sigma_arr):
     ''' Fits the FOSOF data (phase vs frequency) to the first-order polynomial. Extracts the slope, offset, zero-crossing frequency, and the associated uncertainties. Gives the reduced chi-squared parameter.
@@ -173,7 +163,7 @@ def av_freq_data(df):
 def get_av_phase_dupl_freq(df):
     if df.shape[0] > 1:
         freq_dupl = df.index.get_level_values('Waveguide Carrier Frequency [MHz]').drop_duplicates()[0]
-        #print('Frequency ' + str(freq_dupl) + ' MHz is duplicated. Averaging the phases...')
+        print('Frequency ' + str(freq_dupl) + ' MHz is duplicated. Averaging the phases...')
 
         return df.groupby(level=['Phase Reference Type', 'Fourier Harmonic', 'Averaging Type', 'STD Type'], axis='columns').apply(av_freq_data).reset_index('Waveguide Carrier Frequency [MHz]', drop=True)
     else:
@@ -182,7 +172,6 @@ def get_av_phase_dupl_freq(df):
 def get_fosof_lineshape_for_param_group(fosof_phase_exp_group_df):
     ''' Gives the lineshape parameters for a set of grouped experiments.
     '''
-    #print(fosof_phase_exp_group_df.index.values)
     #fosof_phase_exp_av_freq_df = fosof_phase_exp_group_df
     fosof_phase_exp_av_freq_df = fosof_phase_exp_group_df.groupby('Waveguide Carrier Frequency [MHz]').apply(get_av_phase_dupl_freq)
 
@@ -192,18 +181,9 @@ def get_fosof_lineshape_for_param_group(fosof_phase_exp_group_df):
 
     return fosof_phase_exp_grouped.apply(get_fosof_lineshape)
 #%%
-saving_folder_location = fosof_analyzed_data_folder_path
-
-fosof_phase_data_file_name = 'fosof_phase_grouped_list.csv'
-grouped_exp_param_file_name = 'grouped_exp_param_list.csv'
-
-os.chdir(saving_folder_location)
-
 fosof_phase_grouped_df = pd.read_csv(filepath_or_buffer=fosof_phase_data_file_name, delimiter=',', comment='#', header=[0, 1, 2, 3, 4], skip_blank_lines=True, index_col=[0, 1, 2, 3])
 
 grouped_exp_df = pd.read_csv(filepath_or_buffer=grouped_exp_param_file_name, delimiter=',', comment='#', header=0, skip_blank_lines=True, index_col=0)
-
-
 
 # We now group the data by the variaty of parameters and find the zero-crossing frequency for each grouped experiment. The important point is that we also group the data by the non-overalapping range of frequencies acquired for a given grouped experiment. Thus a given grouped experiment might appear in several different parameter groups, since its frequency range might cover several ranges of frequencies specified by us.
 
@@ -216,51 +196,52 @@ grouped_exp_df['Charge Exchange Mass Flow Rate [sccm]'].drop_duplicates()
 # Columns by which the grouped experiments are grouped
 grouping_col_list = ['Experiment Type', 'Accelerating Voltage [kV]', 'Waveguide Separation [cm]', 'Proton Deflector Voltage [V]', 'Waveguide Electric Field [V/cm]']
 
+grouped_exp_df = grouped_exp_df.loc[139]
+
 grouped_exp_grouped = grouped_exp_df.groupby(grouping_col_list)
 
 grouped_exp_fosof_lineshape_param_df = pd.DataFrame()
 
-for name, group_df in grouped_exp_grouped:
-    print(name)
-    grouped_exp_index_list = list(group_df.index)
-    fosof_phase_subgroup_df = fosof_phase_grouped_df.loc[grouped_exp_index_list]
+group_df = grouped_exp_grouped.get_group(list(grouped_exp_grouped.groups)[0])
+grouped_exp_index_list = list(group_df.index)
+fosof_phase_subgroup_df = fosof_phase_grouped_df.loc[grouped_exp_index_list]
 
-    # For each parameters group we have the dataframe that stores the FOSOF lineshape fit parameters of the grouped experiments.
-    fosof_lineshape_param_df = pd.DataFrame()
+# For each parameters group we have the dataframe that stores the FOSOF lineshape fit parameters of the grouped experiments.
+fosof_lineshape_param_df = pd.DataFrame()
 
-    # # There are 1, 2, 3, 4, 5, 6, 7, 8 multiples of central (4 MHz) frequency range that were acquired in the experiment. We also want to look at the data for 1/16, 1/8, 1/4, 1/2 multiple of 4 MHz.
-    #
-    # for range_multiple in np.append(np.array([1/16, 1/8, 1/4, 1/2]), np.arange(1, 9)):
+# There are 1, 2, 3, 4, 5, 6, 7, 8 multiples of central (4 MHz) frequency range that were acquired in the experiment.
+range_multiple = 1
+freq_range_df = get_freq_range_data(fosof_phase_subgroup_df, range_multiple)
 
-    #There are 1, 2, 3, 4, 5, 6, 7, 8 multiples of central (4 MHz) frequency range that were acquired in the experiment.
-    #for range_multiple in np.arange(1, 9):
-    for range_multiple in np.array([1/8, 1, 2]):
-         freq_range_df = get_freq_range_data(fosof_phase_subgroup_df, range_multiple)
-         # The analysis is performed if there is data that was acquired for the given frequency range multiple.
-         if freq_range_df.shape[0] > 0:
-            print(freq_range_df.shape[0])
-            freq_range_grouped = freq_range_df.groupby(['Group ID', 'Beam RMS Radius [mm]'])
+ # The analysis is performed if there is data that was acquired for the given frequency range multiple.
 
-            freq_range_fosof_lineshape_data_df = freq_range_grouped.apply(get_fosof_lineshape_for_param_group)
+freq_range_grouped = freq_range_df.groupby(['Group ID', 'Beam RMS Radius [mm]'])
 
-            freq_range_fosof_lineshape_data_df.index.names = ['Group ID', 'Beam RMS Radius [mm]', 'FOSOF Lineshape Parameter']
+freq_range_fosof_lineshape_data_df = freq_range_grouped.apply(get_fosof_lineshape_for_param_group)
+#%%
+freq_range_fosof_lineshape_data_df
+#%%
+freq_range_fosof_lineshape_data_df
+#%%
+freq_range_fosof_lineshape_data_df.index.names = ['Group ID', 'Beam RMS Radius [mm]', 'FOSOF Lineshape Parameter']
 
-            freq_range_fosof_lineshape_data_df['Frequency Range Multiple'] = range_multiple
-            freq_range_fosof_lineshape_data_df = freq_range_fosof_lineshape_data_df.set_index('Frequency Range Multiple', append=True)
-            freq_range_fosof_lineshape_data_df = freq_range_fosof_lineshape_data_df.unstack(level='FOSOF Lineshape Parameter')
+freq_range_fosof_lineshape_data_df['Frequency Range Multiple'] = range_multiple
+freq_range_fosof_lineshape_data_df = freq_range_fosof_lineshape_data_df.set_index('Frequency Range Multiple', append=True)
+freq_range_fosof_lineshape_data_df = freq_range_fosof_lineshape_data_df.unstack(level='FOSOF Lineshape Parameter')
 
-            fosof_lineshape_param_df = fosof_lineshape_param_df.append(freq_range_fosof_lineshape_data_df)
+fosof_lineshape_param_df = fosof_lineshape_param_df.append(freq_range_fosof_lineshape_data_df)
 
-    # Adding the parameters of the group to the dataframe containing the FOSOF lineshape fit parameters.
+# Adding the parameters of the group to the dataframe containing the FOSOF lineshape fit parameters.
+for col in grouping_col_list:
+    fosof_lineshape_param_df[col] = group_df.iloc[0][col]
 
-    for col in grouping_col_list:
-        fosof_lineshape_param_df[col] = group_df.iloc[0][col]
+fosof_lineshape_param_df = fosof_lineshape_param_df.set_index(grouping_col_list, append=True).reorder_levels(['Experiment Type', 'Beam RMS Radius [mm]', 'Waveguide Separation [cm]', 'Accelerating Voltage [kV]', 'Proton Deflector Voltage [V]', 'Waveguide Electric Field [V/cm]', 'Frequency Range Multiple', 'Group ID'])
 
-    fosof_lineshape_param_df = fosof_lineshape_param_df.set_index(grouping_col_list, append=True).reorder_levels(['Experiment Type', 'Beam RMS Radius [mm]', 'Waveguide Separation [cm]', 'Accelerating Voltage [kV]', 'Proton Deflector Voltage [V]', 'Waveguide Electric Field [V/cm]', 'Frequency Range Multiple', 'Group ID'])
-
-    grouped_exp_fosof_lineshape_param_df = grouped_exp_fosof_lineshape_param_df.append(fosof_lineshape_param_df)
-
+grouped_exp_fosof_lineshape_param_df = grouped_exp_fosof_lineshape_param_df.append(fosof_lineshape_param_df)
+#%%
 grouped_exp_fosof_lineshape_param_df.sort_index(inplace=True)
+#%%
+grouped_exp_fosof_lineshape_param_df
 #%%
 # Save the fosof data
 fosof_lineshape_param_file_name = 'fosof_lineshape_param.csv'
@@ -269,6 +250,51 @@ os.chdir(saving_folder_location)
 
 grouped_exp_fosof_lineshape_param_df.to_csv(path_or_buf=fosof_lineshape_param_file_name, mode='w', header=True)
 #%%
-freq_range_df
+grouped_exp_fosof_lineshape_param_df
 #%%
-freq_range_df.shape[0]
+fosof_phase_grouped_df.loc[139, -1].reset_index('Experiment ID').sort_index()
+#%%
+range_multiple = 1
+central_freq = 910
+
+# In principle we want to take a look at the data in 2 MHz wide chunk on each side (left and right) of the central frequency. However, because of the up to 100 kHz jitters, we want to make sure that we can cover the additional 0.1 MHz on each side about 910 MHz. Since we took the data at most at 8 x the normal range = 32 MHz = 16 MHz in each direction, we need to make sure that we pick the range is such a way that we are 16.1 MHz on each direction at 8 x the range. This translates into the 2.0125 MHz range.
+side_range = 2.1
+
+if range_multiple >= 1:
+
+    # Ranges of frequencies on each side to pick.
+    left_side = [central_freq-side_range*range_multiple, central_freq-side_range*range_multiple+side_range]
+    right_side = [side_range*range_multiple + central_freq-side_range, side_range*range_multiple + central_freq]
+
+else:
+    left_side = [central_freq-side_range*range_multiple, central_freq]
+    right_side = [central_freq, central_freq + ]
+#%%
+def get_freq_range_data(df, range_multiple):
+    ''' We want to select the data in certain ranges symmetrically about the 'central' frequency of 910 MHz (blind offset is not taken into account). This way we can test if the zero-crossing is consistent for various ranges of data. This function returns the data corresponding the the chosen range_multiple value, where a value of 1 corresponds to roughly +-2 MHz range about 910 MHz, value of 2 is roughly 906-908 and 912-914 MHz, etc.
+    '''
+    central_freq = 910
+
+    # In principle we want to take a look at the data in 2 MHz wide chunk on each side (left and right) of the central frequency. However, because of the up to 100 kHz jitters, we want to make sure that we can cover the additional 0.1 MHz on each side about 910 MHz. Since we took the data at most at 8 x the normal range = 32 MHz = 16 MHz in each direction, we need to make sure that we pick the range is such a way that we are 16.1 MHz on each direction at 8 x the range. This translates into the 2.0125 MHz range.
+    side_range = 2.1
+
+    if range_multiple >= 2:
+    # Ranges of frequencies on each side to pick.
+        left_side = [central_freq-side_range*range_multiple, central_freq-side_range*range_multiple+side_range]
+        right_side = [side_range*range_multiple + central_freq-side_range, side_range*range_multiple + central_freq]
+
+        # Notice the <= and > signs. These are picked to have non-overlapping limits for different range multiples.
+        return df.loc[((df.index.get_level_values('Waveguide Carrier Frequency [MHz]') > left_side[0]) & (df.index.get_level_values('Waveguide Carrier Frequency [MHz]') <= left_side[1])) | ((df.index.get_level_values('Waveguide Carrier Frequency [MHz]') > right_side[0]) & (df.index.get_level_values('Waveguide Carrier Frequency [MHz]') <= right_side[1]))]
+    else:
+        return df.loc[((df.index.get_level_values('Waveguide Carrier Frequency [MHz]') > central_freq - range_multiple*side_range) & (df.index.get_level_values('Waveguide Carrier Frequency [MHz]') < central_freq + range_multiple*side_range))]
+
+
+#%%
+range_multiple = 4
+left_side = [central_freq-side_range*range_multiple, central_freq-side_range*range_multiple+side_range]
+right_side = [side_range*range_multiple + central_freq-side_range, side_range*range_multiple + central_freq]
+#%%
+left_side
+#%%
+right_side
+#%%

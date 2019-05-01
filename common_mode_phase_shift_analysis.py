@@ -221,6 +221,8 @@ phase_shift_chosen_df.columns = phase_shift_chosen_df.columns.remove_unused_leve
 
 phase_shift_chosen_avg_df = phase_shift_chosen_df.groupby(['Waveguide Carrier Frequency [MHz]']).aggregate(['mean', lambda x: np.std(x, ddof=1)/np.sqrt(x.shape[0])]).drop(columns=['Phase STDOM [mrad]'], level=1).rename(columns={'mean': 'Phase [mrad]', '<lambda>': 'Phase STDOM [mrad]'}).reorder_levels([1, 0, 2], axis='columns')['Phase [mrad]']
 
+data_7_18_df = phase_shift_chosen_avg_df['Phase Difference']
+
 data_df = phase_shift_chosen_avg_df['Phase Difference'].reset_index()
 
 x_data_arr = data_df['Waveguide Carrier Frequency [MHz]']
@@ -266,7 +268,7 @@ f0 = 910 - f_shift
 f_arr = data_df['Waveguide Carrier Frequency [MHz]'].values - f_shift
 
 # Waveguide separation [cm]
-waveguide_separation = 4
+waveguide_separation = 7
 
 slope = slope_dict[waveguide_separation]
 
@@ -285,6 +287,12 @@ f0_shifted = -fosof_poly_fit_shift_params[1]/fosof_poly_fit_shift_params[0]
 # Frequency shift [kHz]
 freq_shift = (f0_shifted - f0) * 1E3
 print('Frequency shift [kHz]: ' + str(freq_shift))
+#%%
+1.72*0.096
+#%%
+1.1*0.149
+#%%
+fosof_poly_fit_shift_params
 #%%
 np.mean(phase_shift_fit_func(x_arr))
 #%%
@@ -315,6 +323,8 @@ plt.show()
 phase_shift_chosen_df.columns = phase_shift_chosen_df.columns.remove_unused_levels()
 
 phase_shift_chosen_avg_df = phase_shift_chosen_df.groupby(['Waveguide Carrier Frequency [MHz]']).aggregate(['mean', lambda x: np.std(x, ddof=1)/np.sqrt(x.shape[0])]).drop(columns=['Phase STDOM [mrad]'], level=1).rename(columns={'mean': 'Phase [mrad]', '<lambda>': 'Phase STDOM [mrad]'}).reorder_levels([1, 0, 2], axis='columns')['Phase [mrad]']
+
+data_7_8_df = phase_shift_chosen_avg_df['Phase Difference']
 
 data_df = phase_shift_chosen_avg_df['Phase Difference'].reset_index()
 
@@ -362,6 +372,8 @@ phase_shift_chosen_df.columns = phase_shift_chosen_df.columns.remove_unused_leve
 
 phase_shift_chosen_avg_df = phase_shift_chosen_df.groupby(['Waveguide Carrier Frequency [MHz]']).aggregate(['mean', lambda x: np.std(x, ddof=1)/np.sqrt(x.shape[0])]).drop(columns=['Phase STDOM [mrad]'], level=1).rename(columns={'mean': 'Phase [mrad]', '<lambda>': 'Phase STDOM [mrad]'}).reorder_levels([1, 0, 2], axis='columns')['Phase [mrad]']
 
+data_4_8_df = phase_shift_chosen_avg_df['Phase Difference']
+
 data_df = phase_shift_chosen_avg_df['Phase Difference'].reset_index()
 
 x_data_arr = data_df['Waveguide Carrier Frequency [MHz]']
@@ -404,11 +416,11 @@ sns.relplot(x='Waveguide Carrier Frequency [MHz]', y='Phase [mrad]', hue='Date',
 
 plt.show()
 #%%
-phase_shift_chosen_df
-#%%
 phase_shift_chosen_df.columns = phase_shift_chosen_df.columns.remove_unused_levels()
 
 phase_shift_chosen_avg_df = phase_shift_chosen_df.groupby(['Waveguide Carrier Frequency [MHz]']).aggregate(['mean', lambda x: np.std(x, ddof=1)/np.sqrt(x.shape[0])]).drop(columns=['Phase STDOM [mrad]'], level=1).rename(columns={'mean': 'Phase [mrad]', '<lambda>': 'Phase STDOM [mrad]'}).reorder_levels([1, 0, 2], axis='columns')['Phase [mrad]']
+
+data_4_18_df = phase_shift_chosen_avg_df['Phase Difference']
 
 data_df = phase_shift_chosen_avg_df['Phase Difference'].reset_index()
 
@@ -456,6 +468,8 @@ phase_shift_chosen_df.columns = phase_shift_chosen_df.columns.remove_unused_leve
 
 phase_shift_chosen_avg_df = phase_shift_chosen_df.groupby(['Waveguide Carrier Frequency [MHz]']).aggregate(['mean', lambda x: np.std(x, ddof=1)/np.sqrt(x.shape[0])]).drop(columns=['Phase STDOM [mrad]'], level=1).rename(columns={'mean': 'Phase [mrad]', '<lambda>': 'Phase STDOM [mrad]'}).reorder_levels([1, 0, 2], axis='columns')['Phase [mrad]']
 
+data_4_5_df = phase_shift_chosen_avg_df['Phase Difference']
+
 data_df = phase_shift_chosen_avg_df['Phase Difference'].reset_index()
 
 x_data_arr = data_df['Waveguide Carrier Frequency [MHz]']
@@ -482,3 +496,30 @@ phase_shift_chosen_avg_df['RF Combiner I Reference'].reset_index().plot(kind='sc
 phase_shift_chosen_avg_df['RF Combiner R Reference'].reset_index().plot(kind='scatter', x='Waveguide Carrier Frequency [MHz]', y='Phase [mrad]', yerr='Phase STDOM [mrad]', ax=axes[1, 1])
 
 plt.show()
+#%%
+fig, ax = plt.subplots()
+
+data_7_18_df.reset_index().plot(kind='scatter', x='Waveguide Carrier Frequency [MHz]', y='Phase [mrad]', yerr='Phase STDOM [mrad]', ax=ax, color='red')
+data_7_8_df.reset_index().plot(kind='scatter', x='Waveguide Carrier Frequency [MHz]', y='Phase [mrad]', yerr='Phase STDOM [mrad]', ax=ax, color='blue')
+
+data_4_18_df.reset_index().plot(kind='scatter', x='Waveguide Carrier Frequency [MHz]', y='Phase [mrad]', yerr='Phase STDOM [mrad]', ax=ax, color='purple')
+data_4_8_df.reset_index().plot(kind='scatter', x='Waveguide Carrier Frequency [MHz]', y='Phase [mrad]', yerr='Phase STDOM [mrad]', ax=ax, color='magenta')
+
+data_4_5_df.reset_index().plot(kind='scatter', x='Waveguide Carrier Frequency [MHz]', y='Phase [mrad]', yerr='Phase STDOM [mrad]', ax=ax, color='green')
+
+ax.set_xlabel('$f$ (MHz)')
+ax.set_ylabel(r'$\Delta \phi_c$ (mrad)')
+
+for item in ([ax.title, ax.xaxis.label, ax.yaxis.label] +
+             ax.get_xticklabels() + ax.get_yticklabels()):
+    item.set_fontsize(15)
+
+fig.tight_layout()
+
+os.chdir(r'E:\Google Drive\Research\Lamb shift measurement\Thesis\FOSOF_ph_cntrl')
+
+plt_name = 'phi_c_measured.pdf'
+plt.savefig(plt_name)
+
+plt.show()
+#%%

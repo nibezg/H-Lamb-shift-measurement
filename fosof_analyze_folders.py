@@ -7,8 +7,17 @@ import os
 import string
 import shutil
 
-# For home
-sys.path.insert(0,"E:/Google Drive/Research/Lamb shift measurement/Code")
+path_data_df = pd.read_csv(filepath_or_buffer='path_data.csv', delimiter=',', comment='#', header=[0], skip_blank_lines=True, index_col=[0])
+
+code_folder_path = path_data_df.loc['Code Folder'].values[0].replace('\\', '/')
+fosof_analyzed_data_folder_path = path_data_df.loc['FOSOF Analyzed Data Folder'].values[0].replace('\\', '/')
+wvg_calib_data_folder_path = path_data_df.loc['Waveguide Calibration Folder'].values[0].replace('\\', '/')
+krytar109B_pwr_det_calib_folder_path = path_data_df.loc['KRYTAR 109 B Power Detector Calibration Data Folder'].values[0].replace('\\', '/')
+
+fosof_for_analysis_folder_path = path_data_df.loc['FOSOF Analyzed Data Folder For Analysis'].values[0].replace('\\', '/')
+
+
+sys.path.insert(0, code_folder_path)
 
 from exp_data_analysis import *
 import fosof_data_set_analysis
@@ -53,7 +62,7 @@ def fosof_data_sets_analyze():
     # Location where the analyzed experiment is saved
     #saving_folder_location = 'C:/Research/Lamb shift measurement/Data/FOSOF analyzed data sets'
     # For Home
-    saving_folder_location = 'E:/2017-10-17 Lamb Shift Measurement/Data/FOSOF analyzed data sets'
+    saving_folder_location = fosof_for_analysis_folder_path
 
     # Analysis version. Needed for checking if the data set has been analyzed before.
     version_number = 0.1
@@ -102,7 +111,7 @@ def fosof_data_sets_analyze():
         experiment_current_name_tk_var.set('Experiment: (' + str(exp_counter+1) + str('/') + str(exp_name_list.shape[0]) + ') ' + exp_folder_name)
 
         # List of beam rms radius values for correcting the FOSOF phases using the simulations. Value of None corresponds to not applying the correction. Note that the None value has to be first in the list. This is for checking whether the analysis has been performed before or not on the FOSOF data sets that are not of the simple Waveguide Carrier Frequency Sweep type.
-        beam_rms_rad_list = [None, 0.8, 1.6, 2.4]
+        beam_rms_rad_list = [None, 0.8, 1.6, 2.4, 0.85, 1.7, 2.55]
 
         for beam_rms_rad in beam_rms_rad_list:
 

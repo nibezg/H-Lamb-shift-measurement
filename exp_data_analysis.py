@@ -21,6 +21,16 @@ import textwrap
 # For arbitrary precision arithmetic
 import decimal
 import fractions
+
+
+path_data_df = pd.read_csv(filepath_or_buffer='path_data.csv', delimiter=',', comment='#', header=[0], skip_blank_lines=True, index_col=[0])
+
+code_folder_path = path_data_df.loc['Code Folder'].values[0].replace('\\', '/')
+fosof_analyzed_data_folder_path = path_data_df.loc['FOSOF Analyzed Data Folder'].values[0].replace('\\', '/')
+wvg_calib_data_folder_path = path_data_df.loc['Waveguide Calibration Folder'].values[0].replace('\\', '/')
+krytar109B_pwr_det_calib_folder_path = path_data_df.loc['KRYTAR 109 B Power Detector Calibration Data Folder'].values[0].replace('\\', '/')
+
+
 #%%
 class FosofAnalysisError(Exception):
     def __init__(self, value):
@@ -550,11 +560,6 @@ def get_krytar_109B_calib(min_det_v, max_det_v, rf_frequency_MHz = 910):
     # For every RF frequency we expect the power reading to be different, because in general we put different powers at different RF frequencies so that the RF Power inside the waveguide stays the same for every frequency. Thus one can assume that we need to have calibration curves for every RF frequency.
     # Power is measured by KRYTAR 109B power detectors. They can be used for up to 18 GHz. We suspect that if we stay at about +-100 MHz about 910 MHz, then the power detector will show the same voltage for each frequency for the same RF power level. This way we can use the calibration obtained for 910 MHz for all other RF frequencies.
 
-    # Path to the power detector calibration
-    # In the lab
-    krytar109B_pwr_det_calib_folder_path = 'C:/Users/Helium1/Google Drive/Research/Lamb shift measurement/Data'
-    # At home
-    #krytar109B_pwr_det_calib_folder_path = 'E:/Google Drive/Research/Lamb shift measurement/Data'
     # KRYTAR 109B Power detector calibration folder name
     krytar109B_pwr_det_calib_folder = '170822-130101 - RF power detector calibration'
     krytar109B_pwr_det_calib_filename = 'KRYTAR 109B power calibration.CSV'
@@ -627,14 +632,14 @@ def divide_and_minimize_phase(phase_arr, div_number):
 
     return phase_arr
 
-def correct_FOSOF_phases_zero_crossing(x_data_arr, phase_data_arr, phase_sigma_arr, zero_cross_freq=910, slope=-0.1*4):
+def correct_FOSOF_phases_zero_crossing(x_data_arr, phase_data_arr, phase_sigma_arr=None, zero_cross_freq=910, slope=-0.1*4):
     ''' Special function for FOSOF lineshape. Corrects for any 0 phase crossing discontinuities in the FOSOF lineshape. This is done by first specifying the approximate fit parameters for the data and then checking for the deviations of the data from the approximate fit and correcting the data accordingly.
 
     Inputs:
 
     :x_data: np.array for x-axis (Usually this is the array of RF frequencies used)
     :phase_data_arr: corresponding list of FOSOF phases in [0, 2*np.pi range) that has not been divided by 4 yet.
-    :phase_sigma_arr: array of respective uncertainties in the phases.
+    :phase_sigma_arr: array of respective uncertainties in the phases. If it is equal to None, then it is assumed that all of the uncertainties are equal to 1.
     :zero_cross_freq: frequency of zero-crossing for the approximate fit [MHz].
     :slope: slope of the approximate fit line. Notice that I assume that the phase_data_arr has not been divided by 4 yet.
 
@@ -682,6 +687,9 @@ def correct_FOSOF_phases_zero_crossing(x_data_arr, phase_data_arr, phase_sigma_a
     approx_fit_data_arr = slope * x_data_arr + offset
 
     phase_data_shifted_arr = phase_data_arr - 2 * np.pi * np.round((phase_data_arr - approx_fit_data_arr) / (2*np.pi))
+
+    if phase_sigma_arr is None:
+        phase_sigma_arr = np.ones(phase_data_shifted_arr.shape[0])
 
     fit_data_arr = np.poly1d(np.polyfit(x_data_arr, phase_data_shifted_arr, deg=1, w=1/phase_sigma_arr**2))(x_data_arr)
 

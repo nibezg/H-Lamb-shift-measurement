@@ -6,7 +6,9 @@ import sys
 import os
 import string
 
-sys.path.insert(0,"C:/Users/Helium1/Google Drive/Code/Python/Testing/Blah") #
+#sys.path.insert(0,"C:/Users/Helium1/Google Drive/Code/Python/Testing/Blah") #
+sys.path.insert(0,"E:/Google Drive/Research/Lamb shift measurement/Code")
+
 from exp_data_analysis import *
 from ZX47_Calibration_analysis import *
 import re
@@ -22,7 +24,7 @@ import matplotlib.pyplot as plt
 
 #%%
 # Folder containing acquired data table
-data_folder = "//LAMBSHIFT-PC/Google Drive/data"
+data_folder = "E:/Google Drive/Research/Lamb shift measurement/Data/Quenching curves"
 # Experiment data file name
 data_file = 'data.txt'
 
@@ -637,7 +639,6 @@ class DataSetQuenchCurveCavity():
 
         'Fractional Quenching offset w.r.t. the maximum surviving fraction'
         frac_quenching_offset = quenching_offset/max_surv_frac
-
         quenching_curve_results_s = pd.Series({
                             'RF Attenuator Setting For Pi-Pulse [V]': rf_att_pi_pulse,
                             'Quenching Offset': quenching_offset,
@@ -646,60 +647,147 @@ class DataSetQuenchCurveCavity():
 
         return quenching_curve_results_s
 #%%
-data_set = DataSetQuenchCurveCavity('180629-172109 - Quench Cavity Calibration - pre-1088 PD ON')
-
-exp_params_s = data_set.get_exp_parameters()
-
-rf_pwr_det_calib_df = data_set.get_quench_cav_rf_pwr_det_calib()
-#%%
-rf_pwr_det_calib_df
-#%%
-rf_freq = 1147
-x_data = rf_pwr_det_calib_df.loc[rf_freq, 'Calibration Function x-Axis Plotting Data']
-y_data = rf_pwr_det_calib_df.loc[rf_freq, 'Calibration Function y-Axis Plotting Data']
-calib_data_df = rf_pwr_det_calib_df.loc[rf_freq, 'Calibration Data']
-
-fig, axes = plt.subplots(nrows=1, ncols=2)
-fig.set_size_inches(20,9)
-axes[0].plot(x_data, y_data, color='C3', label='Cubic Smoothing Spline')
-
-calib_data_df.plot(x='Power Detector [V]', y='RF Power [dBm]', kind='scatter', ax=axes[0], xerr='Power Detector STD [V]', color='C0', s=30, label='Calibration data')
-
-axes[0].set_title(rf_pwr_det_calib_df.loc[910, 'RF Power Detector Model'] + ' RF power detector calibration')
-axes[0].grid()
-axes[0].legend()
-
-#residual_arr = power_det_calib_func(calib_data_df['Power Detector [V]'].values) - calib_data_df['RF Power [dBm]'].values
-
-calib_data_df.plot(x='Power Detector [V]', y='Fit Residual [dB]', kind='scatter', ax=axes[1], xerr='Power Detector STD [V]', color='C2', s=30)
-
-#ax.set_xlim(min_det_v, max_det_v)
-axes[1].set_title('Spline and data residuals with power in dBm')
-axes[1].grid()
-axes[1].set_xlabel('Power Detector [V]')
-axes[1].set_ylabel('Best fit curve - RF Power [dB] residual')
-#axes[0].set_xlim(0.6,0.8)
-#axes[0].set_ylim(-10,5)
-plt.show()
-#%%
-quenching_cavities_df = data_set.get_quenching_cav_data()
-
-#%%
-fig, ax = plt.subplots()
-data = quenching_cavities_df['Pre-Quench', '1088', 'On'].reset_index()
-data.plot.scatter(x='Elapsed Time [s]', y='Fractional Change In Power Detector Reading [ppt]', ax=ax)
-
-plt.show()
-
-#%%
-quenching_cavities_av_df = data_set.get_av_quenching_cav_data()
-quenching_curve_df = data_set.get_quenching_curve()
-
-fig, axes = plt.subplots(nrows=2, ncols=1)
-fig.set_size_inches(10, 16)
-axes = data_set.plot_quenching_curve(axes)
-
-plt.show()
-#%%
-quenching_curve_results_s = data_set.get_quenching_curve_results()
-quenching_curve_results_s
+# data_set = DataSetQuenchCurveCavity('180629-173226 - Quench Cavity Calibration - post-1088 PD ON')
+# #data_set = DataSetQuenchCurveCavity('180412-200106 - Quench Cavity Calibration - pre-1147 PD 120V')
+# #data_set = DataSetQuenchCurveCavity('180629-171507 - Quench Cavity Calibration - pre-910 PD ON')
+#
+# #data_set = DataSetQuenchCurveCavity('180412-200106 - Quench Cavity Calibration - pre-1147 PD 120V')
+#
+# exp_params_s = data_set.get_exp_parameters()
+#
+# rf_pwr_det_calib_df = data_set.get_quench_cav_rf_pwr_det_calib()
+# #%%
+# rf_pwr_det_calib_df
+# #%%
+# rf_freq = 910
+# x_data = rf_pwr_det_calib_df.loc[rf_freq, 'Calibration Function x-Axis Plotting Data']
+# y_data = rf_pwr_det_calib_df.loc[rf_freq, 'Calibration Function y-Axis Plotting Data']
+# calib_data_df = rf_pwr_det_calib_df.loc[rf_freq, 'Calibration Data']
+#
+# fig, axes = plt.subplots(nrows=1, ncols=2)
+# fig.set_size_inches(20,9)
+# axes[0].plot(x_data, y_data, color='C3', label='Cubic Smoothing Spline')
+#
+# calib_data_df.plot(x='Power Detector [V]', y='RF Power [dBm]', kind='scatter', ax=axes[0], xerr='Power Detector STD [V]', color='C0', s=30, label='Calibration data')
+#
+# axes[0].set_title(rf_pwr_det_calib_df.loc[910, 'RF Power Detector Model'] + ' RF power detector calibration')
+# axes[0].grid()
+# axes[0].legend()
+#
+# #residual_arr = power_det_calib_func(calib_data_df['Power Detector [V]'].values) - calib_data_df['RF Power [dBm]'].values
+#
+# calib_data_df.plot(x='Power Detector [V]', y='Fit Residual [dB]', kind='scatter', ax=axes[1], xerr='Power Detector STD [V]', color='C2', s=30)
+#
+# #ax.set_xlim(min_det_v, max_det_v)
+# axes[1].set_title('Spline and data residuals with power in dBm')
+# axes[1].grid()
+# axes[1].set_xlabel('Power Detector [V]')
+# axes[1].set_ylabel('Best fit curve - RF Power [dB] residual')
+# #axes[0].set_xlim(0.6,0.8)
+# #axes[0].set_ylim(-10,5)
+# plt.show()
+# #%%
+# quenching_cavities_df = data_set.get_quenching_cav_data()
+# #%%
+# fig, ax = plt.subplots()
+# data = quenching_cavities_df['Pre-Quench', '1088', 'On'].reset_index()
+# data.plot.scatter(x='Elapsed Time [s]', y='Fractional Change In Power Detector Reading [ppt]', ax=ax)
+#
+# plt.show()
+# #%%
+# quenching_cavities_av_df = data_set.get_av_quenching_cav_data()
+# quenching_curve_df = data_set.get_quenching_curve()
+#
+# fig, axes = plt.subplots(nrows=2, ncols=1)
+# fig.set_size_inches(10, 16)
+# axes = data_set.plot_quenching_curve(axes)
+# axes[0].set_xlim((2.0,3.2))
+# axes[1].set_ylim((0, 0.010))
+# plt.show()
+# #%%
+# data_set.get_att_volt(1)
+# #%%
+# 1-0.9995
+# #%%
+# data_set.get_att_volt(1)
+# #%%
+# data_set.get_att_volt(1)
+# #%%
+# data_set.get_att_volt(0)
+# #%%
+# frac_state_surv = 0.005
+# att_param = data_set.get_att_volt(1-frac_state_surv)
+# data_set.get_att_volt(1)[0] - att_param[0]
+# #%%
+# quenching_curve_results_s = data_set.get_quenching_curve_results()
+# quenching_curve_results_s
+#
+# #%%
+# y_data_arr = quenching_curve_df['Weighted Mean'].values
+# x_data_arr = quenching_curve_df['RF System Power [W]'].values
+# x_data_std_arr = quenching_curve_df['RF System Power STDOM [W]'].values
+# y_data_std_arr = quenching_curve_df['Weighted STD'].values
+#
+# fig, ax = plt.subplots()
+# ax.scatter(x_data_arr, y_data_arr)
+# plt.show()
+# #%%
+# data_set_910 = DataSetQuenchCurveCavity('180629-171507 - Quench Cavity Calibration - pre-910 PD ON')
+#
+# exp_params_s_910 = data_set_910.get_exp_parameters()
+#
+# rf_pwr_det_calib_df_910 = data_set_910.get_quench_cav_rf_pwr_det_calib()
+# quenching_cavities_df_910 = data_set_910.get_quenching_cav_data()
+# quenching_cavities_av_df_910 = data_set_910.get_av_quenching_cav_data()
+# quenching_curve_df_910 = data_set_910.get_quenching_curve()
+# quenching_curve_results_s_910 = data_set_910.get_quenching_curve_results()
+#
+# poly_test_910 = copy.deepcopy(data_set_910.quenching_rf_power_func)
+# poly_test_910[0] = poly_test_910[0] - quenching_curve_results_s_910['Quenching Offset']
+# p_pi_910_arr = np.roots(poly_test_910)
+# p_pi_910 = np.abs(p_pi_910_arr[np.isreal(p_pi_910_arr)])
+#
+# y_data_910_arr = quenching_curve_df_910['Weighted Mean'].values
+# x_data_910_arr = quenching_curve_df_910['RF System Power [W]'].values / p_pi_910
+# x_data_910_std_arr = quenching_curve_df_910['RF System Power STDOM [W]'].values / p_pi_910
+# y_data_910_std_arr = quenching_curve_df_910['Weighted STD'].values
+#
+# data_set_1088 = DataSetQuenchCurveCavity('180629-173226 - Quench Cavity Calibration - post-1088 PD ON')
+#
+# exp_params_s_1088 = data_set_1088.get_exp_parameters()
+#
+# rf_pwr_det_calib_df_1088 = data_set_1088.get_quench_cav_rf_pwr_det_calib()
+# quenching_cavities_df_1088 = data_set_1088.get_quenching_cav_data()
+# quenching_cavities_av_df_1088 = data_set_1088.get_av_quenching_cav_data()
+# quenching_curve_df_1088 = data_set_1088.get_quenching_curve()
+# quenching_curve_results_s_1088 = data_set_1088.get_quenching_curve_results()
+#
+# poly_test_1088 = copy.deepcopy(data_set_1088.quenching_rf_power_func)
+# poly_test_1088[0] = poly_test_1088[0] - quenching_curve_results_s_1088['Quenching Offset']
+# p_pi_1088_arr = np.roots(poly_test_1088)
+# p_pi_1088 = np.abs(p_pi_1088_arr[np.isreal(p_pi_1088_arr)])
+#
+# y_data_1088_arr = quenching_curve_df_1088['Weighted Mean'].values
+# x_data_1088_arr = quenching_curve_df_1088['RF System Power [W]'].values / p_pi_1088
+# x_data_1088_std_arr = quenching_curve_df_1088['RF System Power STDOM [W]'].values / p_pi_1088
+# y_data_1088_std_arr = quenching_curve_df_1088['Weighted STD'].values
+# #%%
+# fig, ax = plt.subplots()
+# fig.set_size_inches(12,8)
+# #data_set.exp_data_averaged_df.reset_index().plot(x='RF System Power [W]', y='Weighted Mean', kind='scatter', yerr='Weighted STD', ax=ax, color='blue')
+#
+# ax.errorbar(x_data_910_arr, y_data_910_arr, y_data_910_std_arr, linestyle='', marker='.', color='blue')
+#
+# ax.errorbar(x_data_1088_arr, y_data_1088_arr, y_data_1088_std_arr, linestyle='', marker='.', color='red')
+#
+#
+# ax.plot([1, 1], [-1, quenching_curve_results_s_910['Quenching Offset']], color='black', linestyle='dashed')
+#
+# ax.plot([-1, 5], [quenching_curve_results_s_910['Quenching Offset'], quenching_curve_results_s_910['Quenching Offset']], color='black', linestyle='dashed')
+#
+# ax.set_xlim([0.0, 5])
+# ax.set_ylim([0, 0.02])
+# ax.set_ylabel('Surviving fraction')
+# ax.set_xlabel('Input power relative to the first $pi$-pulse')
+# plt.show()
+# #%%

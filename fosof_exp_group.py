@@ -15,8 +15,17 @@ import os
 import string
 import shutil
 
-# For home
-sys.path.insert(0,"E:/Google Drive/Research/Lamb shift measurement/Code")
+path_data_df = pd.read_csv(filepath_or_buffer='path_data.csv', delimiter=',', comment='#', header=[0], skip_blank_lines=True, index_col=[0])
+
+code_folder_path = path_data_df.loc['Code Folder'].values[0].replace('\\', '/')
+fosof_analyzed_data_folder_path = path_data_df.loc['FOSOF Analyzed Data Folder'].values[0].replace('\\', '/')
+wvg_calib_data_folder_path = path_data_df.loc['Waveguide Calibration Folder'].values[0].replace('\\', '/')
+krytar109B_pwr_det_calib_folder_path = path_data_df.loc['KRYTAR 109 B Power Detector Calibration Data Folder'].values[0].replace('\\', '/')
+
+fosof_for_analysis_folder_path = path_data_df.loc['FOSOF Analyzed Data Folder For Analysis'].values[0].replace('\\', '/')
+
+
+sys.path.insert(0, code_folder_path)
 
 from exp_data_analysis import *
 import fosof_data_set_analysis
@@ -43,14 +52,12 @@ from tkinter import ttk
 
 from tkinter import messagebox
 #%%
-saving_folder_location = 'E:/2017-10-17 Lamb Shift Measurement/Data/FOSOF analyzed data sets'
+saving_folder_location = fosof_analyzed_data_folder_path
 exp_paired_with_params_file_name = 'fosof_exp_paired_with_params.csv'
 
 os.chdir(saving_folder_location)
 
 exp_paired_param_df = pd.read_csv(filepath_or_buffer=exp_paired_with_params_file_name, delimiter=',', comment='#', header=0, skip_blank_lines=True, index_col=0)
-#%%
-exp_paired_param_df
 #%%
 # Form the grouped experiments
 group_id_col_name = 'Group ID'
@@ -207,7 +214,7 @@ for group_id, df in exp_paired_param_df.groupby(group_id_col_name):
 
         # The beam rms radii are used only for the 'Waveguide Carrier Frequency Sweep' experiment type
         if data_s['Experiment Type'] == 'Waveguide Carrier Frequency Sweep':
-            beam_rms_rad_list = [None, 0.8, 1.6, 2.4]
+            beam_rms_rad_list = [None, 0.8, 1.6, 2.4, 0.85, 1.7, 2.55]
         else:
             beam_rms_rad_list = [None]
 
@@ -258,19 +265,4 @@ os.chdir(saving_folder_location)
 
 fosof_phase_grouped_df.to_csv(path_or_buf=fosof_phase_data_file_name, mode='w', header=True)
 grouped_exp_df.to_csv(path_or_buf=grouped_exp_param_file_name, mode='w', header=True)
-
 #%%
-fosof_phase_grouped_df
-#%%
-exp_paired_param_df.index.get_level_values('Experiment ID')
-#%%
-exp_paired_param_df.loc[(slice(None), 172), (slice(None))]
-
-#%%
-data_set_0 = fosof_data_set_analysis.DataSetFOSOF(exp_folder_name=exp_paired_param_df.loc[(slice(None), 171), (slice(None))]['Experiment Name (0-config)'].values[0], load_Q=True, beam_rms_rad_to_load=None)
-#%%
-data_set_0.get_exp_parameters()
-#%%
-data_set_0.get_exp_parameters()
-#%%
-exp_paired_param_df.loc[123]['Experiment Name (0-config)'].values

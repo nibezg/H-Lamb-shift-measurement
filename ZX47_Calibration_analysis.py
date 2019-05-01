@@ -6,8 +6,16 @@ import sys
 import os
 import string
 
-sys.path.insert(0,"C:/Users/Helium1/Google Drive/Research/Lamb shift measurement/Code") #
-#from exp_data_analysis import *
+path_data_df = pd.read_csv(filepath_or_buffer='path_data.csv', delimiter=',', comment='#', header=[0], skip_blank_lines=True, index_col=[0])
+
+code_folder_path = path_data_df.loc['Code Folder'].values[0].replace('\\', '/')
+fosof_analyzed_data_folder_path = path_data_df.loc['FOSOF Analyzed Data Folder'].values[0].replace('\\', '/')
+wvg_calib_data_folder_path = path_data_df.loc['Waveguide Calibration Folder'].values[0].replace('\\', '/')
+krytar109B_pwr_det_calib_folder_path = path_data_df.loc['KRYTAR 109 B Power Detector Calibration Data Folder'].values[0].replace('\\', '/')
+zx47_pd_calib_folder_path = path_data_df.loc['ZX47 Power Sensor Calibration Data Folder'].values[0].replace('\\', '/')
+
+
+sys.path.insert(0, code_folder_path)
 
 import re
 import time
@@ -34,7 +42,7 @@ pow_det_calib_folder_s = pd.Series(  {
 # Calibration file name
 calib_data_file = 'rf_power_sensor_calibration.txt'
 
-calib_data_folder = 'C:\Research\Lamb shift measurement\Code\RF power sensor calibration'
+calib_data_folder = zx47_pd_calib_folder_path
 
 class ZX4755LNCalibration():
     ''' Class for power calibration of the Mini-Circuits ZX47-55LN-S+ RF power detector.
@@ -168,7 +176,7 @@ class ZX4755LNCalibration():
         return x_data, y_data
 #%%
 # data_set = ZX4755LNCalibration(1088)
-# 
+#
 # spl_smoothing_inverse, fract_unc = data_set.get_calib_curve()
 # x_data, y_data = data_set.get_spline_data_to_plot(1000)
 #

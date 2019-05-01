@@ -94,7 +94,7 @@ dist_quench_cav_stack_to_wvg = 59.7091 * 1E-3
 # I assume that the radius of the waveguides is the same along the whole length of the waveguides. This is not true in reality, but it should not matter for this simulation.
 
 # Length of the waveguides [mm]
-wvg_length = 224.4099 * 1E-3
+wvg_length = 225.4099 * 1E-3
 
 # Here I include the distance from the end of the pre-quench cavity stack to the start of the waveguides into the length of the waveguides. And the start of the waveguides is assumed to begin right after the pre-quench cavity stack.
 z_wvg_start = z_pre_quench_cav_end
@@ -293,7 +293,7 @@ max_steps = 1000
 # Magnitude of the velocity vector [m/s]
 v_norm = 100
 # Number of atoms = number of simulation runs
-sim_num = 40000
+sim_num = 50000
 # Numpy cannot create very large arrays. That is why I need to subdivide the total number of atoms into chunks and run these chunks separately, and then combine the resulting data together.
 sim_chunk_size = int(1E3)
 sim_num_chunks = int(sim_num / sim_chunk_size)
@@ -547,7 +547,7 @@ def propagate_circular_pattern(rot_angle, r_set_arr):
     # Array of angles through which to rotate the atoms' positions to cover full [0, 2pi] range.
     rot_angle_arr = np.linspace(rot_angle, 2*np.pi-rot_angle, n_rot)
 
-    # Array to store full circulat pattern
+    # Array to store full circular pattern
     r_full_arr = np.zeros((n_rot+1, r_set_arr.shape[0], 2))
     r_full_arr[0] = r_set_arr[:, [0, 1]]
 
@@ -632,6 +632,8 @@ plt.show()
 #%%
 r_rms_end, integ_prob_dens = calc_rms_rad(use_every_nth_element, r_full_arr, bins)
 #%%
+r_rms_end
+#%%
 ''' Start of the waveguides
 '''
 fig = plt.figure()
@@ -645,6 +647,11 @@ ax.set_aspect('equal')
 fig.set_size_inches(15, 10)
 
 plt.show()
+#%%
+r_reached_set_arr = 0
+r_full_arr = 0
+#%%
+r_phi_angle_range
 #%%
 rot_angle = r_phi_angle_range
 r_full_arr = propagate_circular_pattern(rot_angle, r_wvg_start_set_arr)
@@ -731,3 +738,38 @@ r_rms_end, integ_prob_dens = calc_rms_rad(use_every_nth_element, r_full_arr, bin
 r_rms_avg = (r_rms_start + r_rms_mid + r_rms_end) / 3 * 1E3
 #%%
 r_rms_avg
+#%%
+r_rms_end
+#%%
+r_rms_start
+#%%
+r_rms_avg
+#%%
+r_rms_mid
+#%%
+r_rms_end
+#%%
+z_wvg_end
+#%%
+z_wvg_start
+#%%
+z_wvg_end-z_wvg_start-0.06
+#%%
+z_wvg_end-z_wvg_start
+#%%
+z_post_quench_cav_end - quench_cav_stack_length
+#%%
+r_rms_mid
+#%%
+(1.54+1.61+1.70)/3
+#%%
+r_rms_avg
+#%%
+r_rms_avg2 = np.sqrt((r_rms_start**2 + r_rms_mid**2 + r_rms_end**2) / 3) * 1E3
+r_rms_avg2
+#%%
+r_rms_avg2
+#%%
+r_rms_mid
+#%%
+(np.sqrt(r_rms_avg2**2 + 0.5**2)-r_rms_avg2)/2

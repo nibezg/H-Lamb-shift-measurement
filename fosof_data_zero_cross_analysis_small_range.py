@@ -1,7 +1,9 @@
 '''
-2018-11-06
+2019-04-12
 
-After forming grouped experiments and making lists of fosof phases we can select the data corresponding to given Accelerating voltage, Proton deflector voltage, Waveguide separation and power, experiment type, Charge Exchange flow rate, group id, and, finally, range of RF frequencies. The zero-crossing frequency can be determined for each of these groups of data sets + other fit parameters. Essentially this script produces the most important set of data for the experiment, because it is the basis for the final analysis that is performed on the zero-crossing frequencies.
+Same as the fosof_data_zero_cross_analysis.py, but for frequency ranges of less than 4 MHz. In this case, especially for very small ranges, there is not enough of data points to reliably determine the slope and the offset of the linear fit. However, we can assume that the slope is equal to the average slope of the data, acquired at range multiple of 1. We also assume that for all of the range the data is following linear trend. In this case, it is easy to show, that the zero-crossing frequency for small range, f_zc_small is equal to:
+
+f_zc_small = f_zc - <Delta Theta>/T, where f_zc is the average zero-crossing frequency for the range multiple of 1 data. <Delta Theta> is the average difference of the data from the expected trend, given by T(f-f_zc); T is the average slope (for the range multiple of 1 data).
 
 Author: Nikita Bezginov
 '''

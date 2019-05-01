@@ -7,9 +7,6 @@ import os
 import string
 import shutil
 
-sys.path.insert(0,"C:/Users/Helium1/Google Drive/Code/Python/Testing/Blah") #
-from exp_data_analysis import *
-from fosof_data_set_analysis import *
 import re
 import time
 import math
@@ -19,39 +16,48 @@ import numpy.fft
 import scipy.fftpack
 import scipy.interpolate
 
+import matplotlib as mpl
+
 import matplotlib.pyplot as plt
+from matplotlib.collections import PatchCollection
+from matplotlib.patches import Rectangle
 
+from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits.mplot3d import proj3d
+from matplotlib.patches import FancyArrowPatch
+import matplotlib.patches as mpatches
+import matplotlib.ticker as ticker
 
-import threading
-from Queue import Queue
+sys.path.insert(0,"E:/Google Drive/Research/Lamb shift measurement/Code")
 
-# Package for wrapping long string to a paragraph
-import textwrap
+from exp_data_analysis import *
+from fosof_data_set_analysis import *
+from quenching_curve_analysis import *
+from fosof_data_zero_cross_analysis import *
 
-from Tkinter import *
-import ttk
-import tkMessageBox
+class Arrow3D(FancyArrowPatch):
 
-experiment_folder = '180321-150600 - FOSOF Acquisition - 0 config, 18 V per cm PD ON 120 V'
+    def __init__(self, xs, ys, zs, *args, **kwargs):
+        FancyArrowPatch.__init__(self, (0, 0), (0, 0), *args, **kwargs)
+        self._verts3d = xs, ys, zs
+
+    def draw(self, renderer):
+        xs3d, ys3d, zs3d = self._verts3d
+        xs, ys, zs = proj3d.proj_transform(xs3d, ys3d, zs3d, renderer.M)
+        self.set_positions((xs[0], ys[0]), (xs[1], ys[1]))
+        FancyArrowPatch.draw(self, renderer)
+
 #%%
 # Folder containing binary traces in .npy format
-binary_traces_folder = "//LAMBSHIFT-PC/Users/Public/Documents/binary traces"
-# Folder containing acquired data table
-data_folder = "//LAMBSHIFT-PC/Google Drive/data"
-# Experiment data file name
-data_file = 'data.txt'
+binary_traces_folder = r"E:\Google Drive\Research\Lamb shift measurement\Data\Binary_traces_thesis"
 
-# Prepare for the data analysis. This includes getting the experiment parameters and checking if the analysis has been started/finished before.
+experiment_folder_name = '180321-150600 - FOSOF Acquisition - 0 config, 18 V per cm PD ON 120 V'
 
-os.chdir(data_folder)
-os.chdir(experiment_folder)
+beam_rms_rad = None
+# List of beam  rms radius values for correcting the FOSOF phases using the simulations. Value of None corresponds to not applying the correction.
+data_set = DataSetFOSOF(exp_folder_name=experiment_folder_name, load_Q=True, beam_rms_rad_to_load=beam_rms_rad)
 
-# Get header names from the data file
-exp_data = pd.read_csv(filepath_or_buffer=data_file, delimiter=',', comment='#', header=0, skip_blank_lines=True, skipinitialspace=True)
-exp_column_names = exp_data.columns.values
-
-# Get the experiment parameters from the data file
-exp_params_dict, comment_string_arr = get_experiment_params(data_file)
+exp_params_dict = dict(data_set.get_exp_parameters())
 
 # Important experiment parameters
 n_Bx_steps = exp_params_dict['Number of B_x Steps']
@@ -66,16 +72,12 @@ offset_freq_array = exp_params_dict['Offset Frequency [Hz]']
 pre_910_on_n_digi_samples = exp_params_dict['Pre-Quench 910 On Number of Digitizer Samples']
 gain = exp_params_dict['Current Amplifier Gain (log10)']
 
-exp_params_dict
-#%%
-
 #%%
 def get_av_trace_data(trace_name, ch_label, n_periods, n_periods_to_remove):
 
-    digi_trace_file_name =trace_name + '_0' + str(ch_label) + '.digi.npy'
+    digi_trace_file_name = trace_name + '_0' + str(ch_label) + '.digi.npy'
 
     os.chdir(binary_traces_folder)
-    os.chdir(experiment_folder)
 
     # Import the trace and get its parameters (from the file name)
     trace_params, trace_V_array = import_digi_trace(digi_trace_file_name, digi_ch_range)
@@ -215,15 +217,15 @@ t_det_B_cross = (np.pi*(1+1/2) - (det_harm_arr_B['Fourier Phase [Rad]'] - delta_
 from matplotlib.ticker import MaxNLocator
 
 y_range_mult = 1.2
-label_font_size = 20*1.2
+label_font_size = 17
 
 fig, axes = plt.subplots(nrows=1, ncols=2)
 
-fig.set_size_inches(16, 6)
+fig.set_size_inches(12, 4)
 
 fract_points_plot = 8
-axes[0].errorbar(x=t_arr[::fract_points_plot], y=x_det_shifted_arr_A[::fract_points_plot], marker='.', yerr=x_det_std_arr_A[::fract_points_plot], linestyle='None', color='red', label='"A" Configuration')
 
+axes[0].errorbar(x=t_arr[::fract_points_plot], y=x_det_shifted_arr_A[::fract_points_plot], marker='.', yerr=x_det_std_arr_A[::fract_points_plot], linestyle='None', color='red', label='"A" Configuration')
 
 axes[0].plot(t_arr, x_det_shifted_cos_arr_A, color='red', linewidth=1, linestyle='dashed')
 axes[0].set_xlim(np.min(t_arr), np.max(t_arr))
@@ -244,7 +246,7 @@ for item in ([axes[0].xaxis.label, axes[0].yaxis.label] +
 
 ax_0 = axes[0].twinx()
 ax_0.plot(t_arr, x_comb_cos_arr_A, color='purple')
-ax_0.set_ylabel('Combiner signal (Arb. Units)', color='purple')
+#ax_0.set_ylabel('Combiner signal (Arb. Units)', color='purple')
 ax_0.set_yticklabels([])
 ax_0.set_yticks([])
 ax_0.set_ylim(-y_range_mult*comb_harm_arr_A['Fourier Amplitude [Arb]'], y_range_mult*comb_harm_arr_A['Fourier Amplitude [Arb]'])
@@ -254,34 +256,36 @@ for item in ([ax_0.xaxis.label, ax_0.yaxis.label] +
              ax_0.get_xticklabels() + ax_0.get_yticklabels()):
     item.set_fontsize(label_font_size)
 
-axes[1].errorbar(x=t_arr[::fract_points_plot], y=x_det_shifted_arr_B[::fract_points_plot], marker='.', yerr=x_det_std_arr_B[::fract_points_plot], linestyle='None', color='blue', label='"B" Configuration')
-
-axes[1].plot(t_arr, x_det_shifted_cos_arr_B, color='blue', linewidth=1, linestyle='dashed')
-
-axes[1].set_xlim(np.min(t_arr), np.max(t_arr))
-axes[1].set_ylabel('Detector current (nA)', color='blue')
-axes[1].set_xlim(np.min(t_arr), np.max(t_arr))
-axes[1].set_ylim(np.abs(dc_det_B) - y_range_mult*det_harm_arr_B['Fourier Amplitude [Arb]'], np.abs(dc_det_B) + y_range_mult*det_harm_arr_B['Fourier Amplitude [Arb]'])
-#axes[1].grid()
-axes[1].set_xlabel('Time (ms)')
-axes[1].tick_params(axis='y', colors='blue')
-axes[1].xaxis.set_major_locator(MaxNLocator(integer=True))
-axes[1].yaxis.set_major_locator(MaxNLocator(integer=True))
-
-axes[1].axvline(x=t_det_B_cross, color='green', linewidth=0.5)
-axes[1].axvline(x=t_comb_B_cross, color='green', linewidth=0.5)
+axes[1].plot(t_arr, x_comb_cos_arr_B, color='purple')
+#axes[1].legend()
+axes[1].set_ylabel('Combiner signal (arb. units)', color='purple')
+axes[1].set_yticklabels([])
+axes[1].set_yticks([])
+axes[1].set_ylim(-y_range_mult*comb_harm_arr_B['Fourier Amplitude [Arb]'], y_range_mult*comb_harm_arr_B['Fourier Amplitude [Arb]'])
 
 for item in ([axes[1].xaxis.label, axes[1].yaxis.label] +
              axes[1].get_xticklabels() + axes[1].get_yticklabels()):
     item.set_fontsize(label_font_size)
 
 ax_1 = axes[1].twinx()
-ax_1.plot(t_arr, x_comb_cos_arr_B, color='purple')
-#axes[1].legend()
-ax_1.set_ylabel('Combiner signal (Arb. Units)', color='purple')
-ax_1.set_yticklabels([])
-ax_1.set_yticks([])
-ax_1.set_ylim(-y_range_mult*comb_harm_arr_B['Fourier Amplitude [Arb]'], y_range_mult*comb_harm_arr_B['Fourier Amplitude [Arb]'])
+
+ax_1.errorbar(x=t_arr[::fract_points_plot], y=x_det_shifted_arr_B[::fract_points_plot], marker='.', yerr=x_det_std_arr_B[::fract_points_plot], linestyle='None', color='blue', label='"B" Configuration')
+
+ax_1.plot(t_arr, x_det_shifted_cos_arr_B, color='blue', linewidth=1, linestyle='dashed')
+
+ax_1.set_xlim(np.min(t_arr), np.max(t_arr))
+ax_1.set_ylabel('Detector current (nA)', color='blue')
+ax_1.set_xlim(np.min(t_arr), np.max(t_arr))
+ax_1.set_ylim(np.abs(dc_det_B) - y_range_mult*det_harm_arr_B['Fourier Amplitude [Arb]'], np.abs(dc_det_B) + y_range_mult*det_harm_arr_B['Fourier Amplitude [Arb]'])
+#axes[1].grid()
+axes[1].set_xlabel('Time (ms)')
+ax_1.tick_params(axis='y', colors='blue')
+axes[1].xaxis.set_major_locator(MaxNLocator(integer=True))
+ax_1.yaxis.set_major_locator(MaxNLocator(integer=True))
+
+ax_1.axvline(x=t_det_B_cross, color='green', linewidth=0.5)
+ax_1.axvline(x=t_comb_B_cross, color='green', linewidth=0.5)
+
 
 for item in ([ax_1.xaxis.label, ax_1.yaxis.label] +
              ax_1.get_xticklabels() + ax_1.get_yticklabels()):
@@ -290,48 +294,340 @@ for item in ([ax_1.xaxis.label, ax_1.yaxis.label] +
 axes[0].arrow(x=t_det_A_cross+0.2, y=79.85, dx=-0.1, dy=0, head_width=0.05, head_length=2*0.05, fc='green', linestyle='solid', color='green')
 axes[0].arrow(x=t_comb_A_cross-0.2, y=79.85, dx=0.1, dy=0, head_width=0.05, head_length=2*0.05, fc='green', linestyle='solid', color='green')
 
-axes[0].text(x=t_comb_B_cross-0.4, y=79.81, s=r'$\Delta\theta$', fontsize=20, color='green')
+axes[0].text(x=t_comb_B_cross-0.47, y=79.81, s=r'$\Delta\theta^{A}$', fontsize=label_font_size, color='green')
 
-axes[1].arrow(x=t_det_B_cross-0.2, y=79.9, dx=0.1, dy=0, head_width=0.05, head_length=2*0.05, fc='green', linestyle='solid', color='green')
-axes[1].arrow(x=t_comb_B_cross+0.2, y=79.9, dx=-0.1, dy=0, head_width=0.05, head_length=2*0.05, fc='green', linestyle='solid', color='green')
+ax_1.arrow(x=t_det_B_cross-0.2, y=79.9, dx=0.1, dy=0, head_width=0.05, head_length=2*0.05, fc='green', linestyle='solid', color='green')
+ax_1.arrow(x=t_comb_B_cross+0.2, y=79.9, dx=-0.1, dy=0, head_width=0.05, head_length=2*0.05, fc='green', linestyle='solid', color='green')
 
-axes[1].text(x=t_det_A_cross-0.55, y=79.85, s=r'$\Delta\theta$', fontsize=20, color='green')
+ax_1.text(x=t_det_A_cross-0.6, y=79.86, s=r'$\Delta\theta^{B}$', fontsize=label_font_size, color='green')
 
 ax_0.axhline(y=0, color='black', linewidth=0.5)
-ax_1.axhline(y=0, color='black', linewidth=0.5)
+axes[1].axhline(y=0, color='black', linewidth=0.5)
 
 ax_0.margins(x=0)
 ax_1.margins(x=0)
 
 fig.tight_layout()
 
+plt.subplots_adjust(wspace = 0.2)
+
+os.chdir(r'E:\Google Drive\Research\Lamb shift measurement\Thesis\FOSOF_phase_canc')
+plt_name = 'RF_CHA_and_B.svg'
+plt.savefig(plt_name)
+
+plt.show()
+#%%
+#%%
+''' '0'- and 'pi'-configuration FOSOF plots.
+'''
+
+exp_folder_name_0 = '180321-150600 - FOSOF Acquisition - 0 config, 18 V per cm PD ON 120 V'
+exp_folder_name_pi = '180321-152522 - FOSOF Acquisition - pi config, 18 V per cm PD ON 120 V'
+
+av_type = 'Phasor Averaging'
+av_data_std = 'Phase RMS Repeat STD'
+#%%
+# 0-configuration data
+
+beam_rms_rad = None
+# List of beam  rms radius values for correcting the FOSOF phases using the simulations. Value of None corresponds to not applying the correction.
+data_set = DataSetFOSOF(exp_folder_name=exp_folder_name_0, load_Q=True, beam_rms_rad_to_load=beam_rms_rad)
+
+# The power correction is performed only for the simple FOSOF data sets.
+if data_set.get_exp_parameters()['Experiment Type'] != 'Waveguide Carrier Frequency Sweep':
+    beam_rms_rad = None
+    data_set = DataSetFOSOF(exp_folder_name=exp_folder_name, load_Q=True, beam_rms_rad_to_load=beam_rms_rad)
+
+fc_df = data_set.get_fc_data()
+quenching_df = data_set.get_quenching_cav_data()
+rf_pow_df, rf_system_power_outlier_df = data_set.get_rf_sys_pwr_det_data()
+
+digi_df = data_set.get_digitizers_data()
+
+comb_phase_diff_df = data_set.get_combiners_phase_diff_data()
+digi_delay_df = data_set.get_inter_digi_delay_data()
+
+if beam_rms_rad is not None:
+    data_set.correct_phase_diff_for_RF_power(beam_rms_rad)
+
+phase_diff_df = data_set.get_phase_diff_data()
+phase_av_set_averaged_df = data_set.average_av_sets()
+phase_A_minus_B_df, phase_freq_response_df = data_set.cancel_out_freq_response()
+fosof_ampl_df, fosof_phase_df = data_set.average_FOSOF_over_repeats()
+
+data_df = fosof_phase_df['RF Combiner I Reference', 'First Harmonic', av_type, av_data_std]
+
+x_0_arr = data_df.index.values
+y_0_arr = data_df['Weighted Mean'].values
+y_0_std_arr = data_df['Weighted STD'].values
+
+y_0_plot_arr = correct_FOSOF_phases_zero_crossing(x_0_arr, y_0_arr, y_0_std_arr) / 2
+y_0_std_plot_arr = data_df['Weighted STD'].values / 2
+
+fosof_phase_0_df = data_df
+#%%
+# pi-configuration data
+
+beam_rms_rad = None
+# List of beam  rms radius values for correcting the FOSOF phases using the simulations. Value of None corresponds to not applying the correction.
+data_set = DataSetFOSOF(exp_folder_name=exp_folder_name_pi, load_Q=True, beam_rms_rad_to_load=beam_rms_rad)
+
+# The power correction is performed only for the simple FOSOF data sets.
+if data_set.get_exp_parameters()['Experiment Type'] != 'Waveguide Carrier Frequency Sweep':
+    beam_rms_rad = None
+    data_set = DataSetFOSOF(exp_folder_name=exp_folder_name, load_Q=True, beam_rms_rad_to_load=beam_rms_rad)
+
+fc_df = data_set.get_fc_data()
+quenching_df = data_set.get_quenching_cav_data()
+rf_pow_df, rf_system_power_outlier_df = data_set.get_rf_sys_pwr_det_data()
+
+digi_df = data_set.get_digitizers_data()
+
+comb_phase_diff_df = data_set.get_combiners_phase_diff_data()
+digi_delay_df = data_set.get_inter_digi_delay_data()
+
+if beam_rms_rad is not None:
+    data_set.correct_phase_diff_for_RF_power(beam_rms_rad)
+
+phase_diff_df = data_set.get_phase_diff_data()
+phase_av_set_averaged_df = data_set.average_av_sets()
+phase_A_minus_B_df, phase_freq_response_df = data_set.cancel_out_freq_response()
+fosof_ampl_df, fosof_phase_df = data_set.average_FOSOF_over_repeats()
+
+data_df = fosof_phase_df['RF Combiner I Reference', 'First Harmonic', av_type, av_data_std]
+
+x_pi_arr = data_df.index.values
+y_pi_arr = data_df['Weighted Mean'].values
+y_pi_std_arr = data_df['Weighted STD'].values
+
+y_pi_plot_arr = correct_FOSOF_phases_zero_crossing(x_pi_arr, y_pi_arr, y_pi_std_arr) / 2
+y_pi_std_plot_arr = data_df['Weighted STD'].values / 2
+
+fosof_phase_pi_df = data_df
+#%%
+# 0-pi data
+
+# Calculate fosof phases + their uncertainties
+fosof_phase_df = (fosof_phase_0_df[['Weighted Mean']] - fosof_phase_pi_df[['Weighted Mean']]).join(np.sqrt(fosof_phase_0_df[['Weighted STD']]**2 + fosof_phase_pi_df[['Weighted STD']]**2)).sort_index(axis='columns')
+
+# Convert the phases to the 0-2pi range
+fosof_phase_df.loc[slice(None), 'Weighted Mean'] = fosof_phase_df['Weighted Mean'].transform(convert_phase_to_2pi_range)
+
+phase_data_df = fosof_phase_df
+
+x_data_arr = phase_data_df.index.get_level_values('Waveguide Carrier Frequency [MHz]').values
+y_data_arr = phase_data_df['Weighted Mean'].values
+y_sigma_arr = phase_data_df['Weighted STD'].values
+
+# Correct for 0-2*np.pi jumps
+
+y_data_arr = correct_FOSOF_phases_zero_crossing(x_data_arr, y_data_arr, y_sigma_arr)
+
+#Important division by a factor of 4 that was explained before
+y_data_arr = y_data_arr / 4
+y_sigma_arr = y_sigma_arr / 4
+
+fit_param_dict = calc_fosof_lineshape_param(x_data_arr, y_data_arr, y_sigma_arr)
+#%%
+# Plotting
+fig, ax = plt.subplots()
+fig.set_size_inches(12,8)
+#data_set.exp_data_averaged_df.reset_index().plot(x='RF System Power [W]', y='Weighted Mean', kind='scatter', yerr='Weighted STD', ax=ax, color='blue')
+
+ax.errorbar(x_0_arr, y_0_plot_arr, y_0_std_plot_arr, linestyle='', marker='.', color='red')
+
+ax.errorbar(x_pi_arr, y_pi_plot_arr, y_pi_std_plot_arr, linestyle='', marker='.', color='blue')
+
+ax.set_xlabel(r'rf frequency (MHz)')
+ax.set_ylabel(r'$\theta^{AB}$ (rad)')
+for item in ([ax.title, ax.xaxis.label, ax.yaxis.label] +
+             ax.get_xticklabels() + ax.get_yticklabels()):
+    item.set_fontsize(17)
+
+plt.show()
+#%%
+import matplotlib.gridspec as gridspec
+from matplotlib.patches import ConnectionPatch
+import mpl_toolkits.axes_grid1.inset_locator as inset_locator
+#%%
+x_plot_arr = np.linspace(np.min(x_data_arr), np.max(x_data_arr), 100)
+y_plot_arr = fit_param_dict['Slope [Rad/MHz]'] * x_plot_arr + fit_param_dict['Offset [MHz]']
+y_res_arr = fit_param_dict['Slope [Rad/MHz]'] * x_data_arr + fit_param_dict['Offset [MHz]'] - y_data_arr
+
+fig = plt.figure()
+fig.set_size_inches(13,15)
+
+gs = gridspec.GridSpec(nrows=6, ncols=2, figure=fig, hspace=1.5)
+
+ax0 = plt.subplot(gs[2:5, :])
+
+ax0.errorbar(x_data_arr, y_data_arr, y_sigma_arr, linestyle='', marker='.', color='green')
+ax0.plot(x_plot_arr, y_plot_arr, color='green')
+
+ax1 = plt.subplot(gs[-1, :])
+
+ax1.errorbar(x_data_arr, y_res_arr*1E3, y_sigma_arr*1E3, linestyle='', marker='.', color='green')
+
+ax1.set_xticklabels([])
+
+for item in ([ax0.title, ax0.xaxis.label, ax0.yaxis.label] +
+             ax0.get_xticklabels() + ax0.get_yticklabels()):
+    item.set_fontsize(17)
+
+for item in ([ax1.title, ax1.xaxis.label, ax1.yaxis.label] +
+             ax1.get_xticklabels() + ax1.get_yticklabels()):
+    item.set_fontsize(17)
+
+
+x_lim = ax0.get_xlim()
+y_lim = ax0.get_ylim()
+
+ax0.plot([ax0.get_xlim()[0], fit_param_dict['Zero-crossing Frequency [MHz]']], [0, 0], color='black', linestyle='dashed')
+
+ax0.plot([fit_param_dict['Zero-crossing Frequency [MHz]'], fit_param_dict['Zero-crossing Frequency [MHz]']], [0, ax0.get_ylim()[0]], color='black', linestyle='dashed')
+
+start_x = 908.5 + 0.2
+start_y = 0
+end_x = 908.7 + 0.2
+end_y = 0
+arrow_zero_cross_1 = mpatches.FancyArrowPatch((start_x, start_y), (end_x, end_y), arrowstyle='-|>', mutation_scale=30, color='black', linewidth=2)
+
+ax0.add_patch(arrow_zero_cross_1)
+
+start_x = fit_param_dict['Zero-crossing Frequency [MHz]']
+start_y = -0.1 - 0.02
+end_x = fit_param_dict['Zero-crossing Frequency [MHz]']
+end_y = -0.1 - 0.02 - 0.02
+arrow_zero_cross_2 = mpatches.FancyArrowPatch((start_x, start_y), (end_x, end_y), arrowstyle='-|>', mutation_scale=30, color='black', linewidth=2)
+
+ax0.add_patch(arrow_zero_cross_2)
+
+ax0.set_xlim(x_lim)
+ax0.set_ylim(y_lim)
+
+ax0.set_xlabel('rf frequency (MHz)')
+ax0.set_ylabel(r'$\theta$ (rad)')
+
+ax1.set_ylabel('residuals'+'\n'+'(mrad)')
+
+inset_axes = inset_locator.inset_axes(ax0,
+                        width="40%", # width = 30% of parent_bbox
+                        height="30%", # height : 1 inch
+                        loc='upper right',
+                        borderpad=2)
+inset_axes.errorbar(x_0_arr, y_0_plot_arr, y_0_std_plot_arr, linestyle='', marker='.', color='red')
+
+inset_axes.errorbar(x_pi_arr, y_pi_plot_arr, y_pi_std_plot_arr, linestyle='', marker='.', color='blue')
+
+inset_axes.set_xlabel(r'rf frequency (MHz)')
+inset_axes.set_ylabel(r'$\theta^{AB}$ (rad)')
+for item in ([inset_axes.title, inset_axes.xaxis.label, inset_axes.yaxis.label] + inset_axes.get_xticklabels() + inset_axes.get_yticklabels()):
+    item.set_fontsize(17*0.7)
+
+from matplotlib.ticker import MaxNLocator
+
+y_range_mult = 1.2
+label_font_size = 17
+
+fract_points_plot = 8
+
+ax_3 = plt.subplot(gs[0:2, 0])
+
+ax_3.errorbar(x=t_arr[::fract_points_plot], y=x_det_shifted_arr_A[::fract_points_plot], marker='.', yerr=x_det_std_arr_A[::fract_points_plot], linestyle='None', color='red', label='"A" Configuration')
+
+ax_3.plot(t_arr, x_det_shifted_cos_arr_A, color='red', linewidth=1, linestyle='dashed')
+ax_3.set_xlim(np.min(t_arr), np.max(t_arr))
+ax_3.set_ylim(np.abs(dc_det_A) - y_range_mult*det_harm_arr_A['Fourier Amplitude [Arb]'], np.abs(dc_det_A) + y_range_mult*det_harm_arr_A['Fourier Amplitude [Arb]'])
+#axes[0].grid()
+ax_3.set_xlabel('Time (ms)')
+ax_3.set_ylabel('Detector current (nA)', color='red')
+ax_3.tick_params(axis='y', colors='red')
+ax_3.xaxis.set_major_locator(MaxNLocator(integer=True))
+ax_3.yaxis.set_major_locator(MaxNLocator(integer=True))
+
+ax_3.axvline(x=t_det_A_cross, color='green', linewidth=0.5)
+ax_3.axvline(x=t_comb_A_cross, color='green', linewidth=0.5)
+
+for item in ([ax_3.xaxis.label, ax_3.yaxis.label] +
+             ax_3.get_xticklabels() + ax_3.get_yticklabels()):
+    item.set_fontsize(label_font_size)
+
+ax_0 = ax_3.twinx()
+ax_0.plot(t_arr, x_comb_cos_arr_A, color='purple')
+#ax_0.set_ylabel('Combiner signal (Arb. Units)', color='purple')
+ax_0.set_yticklabels([])
+ax_0.set_yticks([])
+ax_0.set_ylim(-y_range_mult*comb_harm_arr_A['Fourier Amplitude [Arb]'], y_range_mult*comb_harm_arr_A['Fourier Amplitude [Arb]'])
+#axes[0].legend()
+
+for item in ([ax_0.xaxis.label, ax_0.yaxis.label] +
+             ax_0.get_xticklabels() + ax_0.get_yticklabels()):
+    item.set_fontsize(label_font_size)
+
+ax_4 = plt.subplot(gs[0:2, 1])
+
+ax_4.plot(t_arr, x_comb_cos_arr_B, color='purple')
+#axes[1].legend()
+ax_4.set_ylabel('Combiner signal (arb. units)', color='purple')
+ax_4.set_yticklabels([])
+ax_4.set_yticks([])
+ax_4.set_ylim(-y_range_mult*comb_harm_arr_B['Fourier Amplitude [Arb]'], y_range_mult*comb_harm_arr_B['Fourier Amplitude [Arb]'])
+
+for item in ([ax_4.xaxis.label, ax_4.yaxis.label] +
+             ax_4.get_xticklabels() + ax_4.get_yticklabels()):
+    item.set_fontsize(label_font_size)
+
+ax_1 = ax_4.twinx()
+
+ax_1.errorbar(x=t_arr[::fract_points_plot], y=x_det_shifted_arr_B[::fract_points_plot], marker='.', yerr=x_det_std_arr_B[::fract_points_plot], linestyle='None', color='blue', label='"B" Configuration')
+
+ax_1.plot(t_arr, x_det_shifted_cos_arr_B, color='blue', linewidth=1, linestyle='dashed')
+
+ax_1.set_xlim(np.min(t_arr), np.max(t_arr))
+ax_1.set_ylabel('Detector current (nA)', color='blue')
+ax_1.set_xlim(np.min(t_arr), np.max(t_arr))
+ax_1.set_ylim(np.abs(dc_det_B) - y_range_mult*det_harm_arr_B['Fourier Amplitude [Arb]'], np.abs(dc_det_B) + y_range_mult*det_harm_arr_B['Fourier Amplitude [Arb]'])
+#axes[1].grid()
+ax_4.set_xlabel('Time (ms)')
+ax_1.tick_params(axis='y', colors='blue')
+ax_4.xaxis.set_major_locator(MaxNLocator(integer=True))
+ax_1.yaxis.set_major_locator(MaxNLocator(integer=True))
+
+ax_1.axvline(x=t_det_B_cross, color='green', linewidth=0.5)
+ax_1.axvline(x=t_comb_B_cross, color='green', linewidth=0.5)
+
+
+for item in ([ax_1.xaxis.label, ax_1.yaxis.label] +
+             ax_1.get_xticklabels() + ax_1.get_yticklabels()):
+    item.set_fontsize(label_font_size)
+
+ax_3.arrow(x=t_det_A_cross+0.2, y=79.85, dx=-0.1, dy=0, head_width=0.05, head_length=2*0.05, fc='green', linestyle='solid', color='green')
+ax_3.arrow(x=t_comb_A_cross-0.2, y=79.85, dx=0.1, dy=0, head_width=0.05, head_length=2*0.05, fc='green', linestyle='solid', color='green')
+
+ax_3.text(x=t_comb_B_cross-0.47, y=79.81, s=r'$\Delta\theta^{A}$', fontsize=label_font_size , color='green')
+
+ax_1.arrow(x=t_det_B_cross-0.2, y=79.9, dx=0.1, dy=0, head_width=0.05, head_length=2*0.05, fc='green', linestyle='solid', color='green')
+ax_1.arrow(x=t_comb_B_cross+0.2, y=79.9, dx=-0.1, dy=0, head_width=0.05, head_length=2*0.05, fc='green', linestyle='solid', color='green')
+
+ax_1.text(x=t_det_A_cross-0.6, y=79.86, s=r'$\Delta\theta^{B}$', fontsize=label_font_size , color='green')
+
+ax_0.axhline(y=0, color='black', linewidth=0.5)
+ax_4.axhline(y=0, color='black', linewidth=0.5)
+
+ax_0.margins(x=0)
+ax_1.margins(x=0)
+
+fig.tight_layout()
+
+plt.subplots_adjust(wspace = 0.2)
+
 #os.chdir('C:\Users\Helium1\Google Drive\Research\Lamb shift measurement\Pics')
 #plt_name = 'RF_CHA_and_B.svg'
 #plt.savefig(plt_name)
 
+
 plt.show()
 #%%
-os.chdir('C:\Users\Helium1\Google Drive\Python\Test')
+np.array([0,1,2,3])[0:2]
 #%%
-data1=get_av_trace_data(trace_name, ch_label, n_periods, n_periods_to_remove)
-#%%
-str(data1)
-#%%
-f=open('x_det_arr_A.txt', 'w')
-f.write(x_det_arr_A)
-f.close()
-#%%
-f1 = open('x_det_arr_A.txt', 'r')
-data = f1.read()
-#%%
-import pickle
-#%%
-f = open('data.dat', 'w')
-#%%
-pickle.dump([t_arr, x_det_arr_A, x_det_std_arr_A, det_harm_arr_A, x_comb_arr_A, x_comb_std_arr_A, comb_harm_arr_A, x_det_arr_B, x_det_std_arr_B, det_harm_arr_B, x_comb_arr_B, x_comb_std_arr_B, comb_harm_arr_B], f)
-f.close()
-#%%
-os.getcwd()
-#%%
-with open('data.dat') as f:
-    t_arr, x_det_arr_A, x_det_std_arr_A, det_harm_arr_A, x_comb_arr_A, x_comb_std_arr_A, comb_harm_arr_A, x_det_arr_B, x_det_std_arr_B, det_harm_arr_B, x_comb_arr_B, x_comb_std_arr_B, comb_harm_arr_B = pickle.load(f)
+gs[5:6]

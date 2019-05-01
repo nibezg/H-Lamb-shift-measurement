@@ -1,7 +1,7 @@
 '''
 2018-11-03
 
-I manually constructed the list of '0' and 'pi'-configuratiob paired data sets. I want to be able to check whether the pairing is correct, but comparing various parameters of the two experiments for each paired experiment. After that the important parameters for the paired experiments are recorded in a separate .csv file
+I manually constructed the list of '0' and 'pi'-configuratiob paired data sets. I want to be able to check whether the pairing is correct, by comparing various parameters of the two experiments for each paired experiment. After that the important parameters for the paired experiments are recorded in a separate .csv file
 
 One full experiment = the paired experiment is the combination of the '0' and 'pi' configuration experiments, taken one after another. This combination can be used to cancel out (in theory) all of the undesired phase shifts, leaving only the atomic phase.
 
@@ -17,8 +17,19 @@ import os
 import string
 import shutil
 
-# For home
-sys.path.insert(0,"E:/Google Drive/Research/Lamb shift measurement/Code")
+path_data_df = pd.read_csv(filepath_or_buffer='path_data.csv', delimiter=',', comment='#', header=[0], skip_blank_lines=True, index_col=[0])
+
+code_folder_path = path_data_df.loc['Code Folder'].values[0].replace('\\', '/')
+fosof_analyzed_data_folder_path = path_data_df.loc['FOSOF Analyzed Data Folder'].values[0].replace('\\', '/')
+wvg_calib_data_folder_path = path_data_df.loc['Waveguide Calibration Folder'].values[0].replace('\\', '/')
+krytar109B_pwr_det_calib_folder_path = path_data_df.loc['KRYTAR 109 B Power Detector Calibration Data Folder'].values[0].replace('\\', '/')
+travis_data_folder_path = path_data_df.loc['Travis Data Folder'].values[0].replace('\\', '/')
+these_high_n_folder_path = path_data_df.loc['Thesis High-n Shift Folder'].values[0].replace('\\', '/')
+these_ac_folder_path = path_data_df.loc['Thesis AC Shift Folder'].values[0].replace('\\', '/')
+these_beam_speed_folder_path = path_data_df.loc['Thesis Speed Measurement Folder'].values[0].replace('\\', '/')
+these_phase_control_folder_path = path_data_df.loc['Thesis Phase Control Folder'].values[0].replace('\\', '/')
+
+sys.path.insert(0, code_folder_path)
 
 from exp_data_analysis import *
 import fosof_data_set_analysis
@@ -46,7 +57,7 @@ from tkinter import ttk
 from tkinter import messagebox
 
 #%%
-saving_folder_location = 'E:/2017-10-17 Lamb Shift Measurement/Data/FOSOF analyzed data sets'
+saving_folder_location = fosof_analyzed_data_folder_path
 
 exp_paired_file_name = 'fosof_exp_paired.xlsx'
 
@@ -183,4 +194,3 @@ exp_paired_param_df.index.names = exp_paired_df.index.names
 os.chdir(saving_folder_location)
 
 exp_paired_param_df.to_csv(path_or_buf=exp_paired_with_params_file_name, mode='w', header=True)
-#%%

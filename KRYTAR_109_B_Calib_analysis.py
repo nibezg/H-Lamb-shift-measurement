@@ -6,10 +6,14 @@ import sys
 import os
 import string
 
-# For lab
-#sys.path.insert(0,"C:/Users/Helium1/Google Drive/Research/Lamb shift measurement/Code")
-# For Home
-sys.path.insert(0,"E:/Google Drive/Research/Lamb shift measurement/Code")
+path_data_df = pd.read_csv(filepath_or_buffer='path_data.csv', delimiter=',', comment='#', header=[0], skip_blank_lines=True, index_col=[0])
+
+code_folder_path = path_data_df.loc['Code Folder'].values[0].replace('\\', '/')
+fosof_analyzed_data_folder_path = path_data_df.loc['FOSOF Analyzed Data Folder'].values[0].replace('\\', '/')
+wvg_calib_data_folder_path = path_data_df.loc['Waveguide Calibration Folder'].values[0].replace('\\', '/')
+krytar109B_pwr_det_calib_folder_path = path_data_df.loc['KRYTAR 109 B Power Detector Calibration Data Folder'].values[0].replace('\\', '/')
+
+sys.path.insert(0, code_folder_path)
 import re
 import time
 import math
@@ -27,7 +31,7 @@ from ZX47_Calibration_analysis import *
 #calib_folder_path = 'C:/Users/Helium1/Google Drive/Research/Lamb shift measurement/Data'
 
 # For Home
-calib_folder_path = 'E:/Google Drive/Research/Lamb shift measurement/Data'
+calib_folder_path = krytar109B_pwr_det_calib_folder_path
 
 # KRYTAR 109B Power detector calibration folder name
 calib_folder = '170822-130101 - RF power detector calibration'

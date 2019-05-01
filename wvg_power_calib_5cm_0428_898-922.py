@@ -8,7 +8,15 @@ import string
 import shutil
 import datetime
 
-sys.path.insert(0,"E:/Google Drive/Research/Lamb shift measurement/Code")
+path_data_df = pd.read_csv(filepath_or_buffer='path_data.csv', delimiter=',', comment='#', header=[0], skip_blank_lines=True, index_col=[0])
+
+code_folder_path = path_data_df.loc['Code Folder'].values[0].replace('\\', '/')
+fosof_analyzed_data_folder_path = path_data_df.loc['FOSOF Analyzed Data Folder'].values[0].replace('\\', '/')
+wvg_calib_data_folder_path = path_data_df.loc['Waveguide Calibration Folder'].values[0].replace('\\', '/')
+krytar109B_pwr_det_calib_folder_path = path_data_df.loc['KRYTAR 109 B Power Detector Calibration Data Folder'].values[0].replace('\\', '/')
+sim_data_folder_path = path_data_df.loc['Simulation Data Folder'].values[0].replace('\\', '/')
+
+sys.path.insert(0, code_folder_path)
 
 from exp_data_analysis import *
 from fosof_data_set_analysis import *
@@ -17,7 +25,9 @@ from KRYTAR_109_B_Calib_analysis import *
 
 from hydrogen_sim_data import *
 
-from wvg_power_calib_raw_data_analysis import *
+os.chdir(code_folder_path)
+from wvg_power_calib_raw_data_analysis_Old import *
+os.chdir(code_folder_path)
 from wvg_power_calib_analysis import *
 
 import re
@@ -173,7 +183,7 @@ wvg_calib_param_dict =    {
 			'Polynomial Fit Order': 3
                     }
 #%%
-wvg_calib_analysis = WaveguideCalibrationAnalysis(load_Q=True, quench_sim_vs_freq_df=quench_sim_vs_freq_df, surv_frac_av_df=surv_frac_av_df, wvg_calib_param_dict=wvg_calib_param_dict)
+wvg_calib_analysis = WaveguideCalibrationAnalysis(load_Q=False, quench_sim_vs_freq_df=quench_sim_vs_freq_df, surv_frac_av_df=surv_frac_av_df, wvg_calib_param_dict=wvg_calib_param_dict)
 #%%
 quench_sim_data_sets_df = wvg_calib_analysis.analyze_simulation_quench_curves()
 #%%
@@ -239,7 +249,7 @@ wvg_calib_param_dict =    {
 			'Polynomial Fit Order': 3
                     }
 # We now calculate the calibration for the case when the fractional offset is 50% smaller.
-wvg_calib_analysis_half = WaveguideCalibrationAnalysis(load_Q=True, quench_sim_vs_freq_df=quench_sim_vs_freq_df, surv_frac_av_df=surv_frac_av_df, wvg_calib_param_dict=wvg_calib_param_dict)
+wvg_calib_analysis_half = WaveguideCalibrationAnalysis(load_Q=False, quench_sim_vs_freq_df=quench_sim_vs_freq_df, surv_frac_av_df=surv_frac_av_df, wvg_calib_param_dict=wvg_calib_param_dict)
 
 quench_sim_data_sets_df = wvg_calib_analysis_half.analyze_simulation_quench_curves()
 surv_frac_converted_df = wvg_calib_analysis_half.extract_E_fields()
@@ -303,7 +313,7 @@ wvg_calib_param_dict =    {
 			'Polynomial Fit Order': 3
                         }
 
-wvg_calib_analysis_plus_half = WaveguideCalibrationAnalysis(load_Q=True, quench_sim_vs_freq_df=quench_sim_vs_freq_df, surv_frac_av_df=surv_frac_av_df, wvg_calib_param_dict=wvg_calib_param_dict)
+wvg_calib_analysis_plus_half = WaveguideCalibrationAnalysis(load_Q=False, quench_sim_vs_freq_df=quench_sim_vs_freq_df, surv_frac_av_df=surv_frac_av_df, wvg_calib_param_dict=wvg_calib_param_dict)
 
 quench_sim_data_sets_df = wvg_calib_analysis_plus_half.analyze_simulation_quench_curves()
 surv_frac_converted_df = wvg_calib_analysis_plus_half.extract_E_fields()

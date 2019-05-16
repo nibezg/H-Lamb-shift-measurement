@@ -2418,7 +2418,7 @@ ax = fig.add_subplot(111)
 
 ax.plot(delta_freq_arr, fract_pop_arr, color='blue')
 
-ax.set_ylabel(r'$(P^(|1\rangle)_{\pi}-P^(|1\rangle)_{0}) \times 10^{-3}$')
+ax.set_ylabel(r'$(P^\mathrm{(SOF)}_{\pi}-P^\mathrm{(SOF)}_{0}) \times 10^{-3}$')
 
 for item in ([ax.title, ax.xaxis.label, ax.yaxis.label] +
              ax.get_xticklabels() + ax.get_yticklabels()):
@@ -2435,7 +2435,7 @@ fract_pop_arr = lineshape_free_data_arr[:, 1]
 ax_twin = ax.twinx()
 ax_twin.plot(delta_freq_arr, fract_pop_arr, color='black', linestyle='dashed')
 
-ax_twin.set_ylabel(r'$P^{\mathrm{(one\,pulse)}}(|1\rangle)$')
+ax_twin.set_ylabel(r'$P^{\mathrm{(one\,pulse)}}$')
 
 for item in ([ax_twin.title, ax_twin.xaxis.label, ax_twin.yaxis.label] +
              ax_twin.get_xticklabels() + ax_twin.get_yticklabels()):
@@ -2667,13 +2667,13 @@ text_x = start_x + (end_x - start_x) / 2
 text_y = -1.3 + 0.2
 ax.text(x=text_x, y=text_y, s='Time', fontsize=15, horizontalalignment='center')
 
-plt.savefig('fosof_pulse_sequence.pdf', format='pdf',  bbox_inches='tight')
+plt.savefig('fosof_pulse_sequence_2.pdf', format='pdf',  bbox_inches='tight')
 
 plt.show()
 #%%
 ''' Probability oscillation from Mathematica'''
 
-os.chdir(r'C:\Users\Helium1\Google Drive\Research\Lamb shift measurement\Thesis\two-level atom')
+os.chdir(r'E:\Google Drive\Research\Lamb shift measurement\Thesis\two-level atom')
 
 prob_osc_data_arr = np.loadtxt('prob_osc_800Hz_2_pulses_14_5.CSV', delimiter=',', dtype=np.float64)
 
@@ -2692,12 +2692,6 @@ amp = fit_raw_0[0]
 phase = fit_raw_0[1]
 P0 = fit_raw_0[2]
 #%%
-phase
-#%%
-amp
-#%%
-amp/P0
-#%%
 fig = plt.figure()
 fig.set_size_inches(10, 6)
 
@@ -2708,8 +2702,8 @@ ax_twin.plot(t_arr, pop_arr-P0, color='blue')
 ax_twin.tick_params(axis='y', colors='blue')
 ax_twin.yaxis.label.set_color('blue')
 
-ax_twin.set_ylabel(r'$P^{\mathrm{(SOF)}}(|1\rangle)_{\Delta\omega t}-P_0$')
-
+ax_twin.set_ylabel(r'$P^{\mathrm{(FOSOF)}}_{\Delta\omega t}-P_0$')
+ax.set_xlabel('time')
 
 ax.plot(t_arr, mixed_arr, color='purple', linestyle='dashed')
 ax.tick_params(axis='y', colors='purple')
@@ -2748,7 +2742,7 @@ for item in ([ax_twin.title, ax_twin.xaxis.label, ax_twin.yaxis.label] +
              ax_twin.get_xticklabels() + ax_twin.get_yticklabels()):
     item.set_fontsize(15)
 
-# plt.savefig('fosof_phase_ex.pdf', format='pdf',  bbox_inches='tight')
+plt.savefig('fosof_phase_ex.pdf', format='pdf',  bbox_inches='tight')
 
 plt.show()
 #%%

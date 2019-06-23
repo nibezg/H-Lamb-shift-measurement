@@ -1645,11 +1645,11 @@ fig.set_size_inches(12,8)
 
 #data_set.exp_data_averaged_df.reset_index().plot(x='RF System Power [W]', y='Weighted Mean', kind='scatter', yerr='Weighted STD', ax=ax, color='blue')
 
-ax.errorbar(x_data_910_arr, y_data_910_arr, y_data_910_std_arr, linestyle='', marker='.', color='blue', label='910')
+ax.errorbar(x_data_910_arr, y_data_910_arr, y_data_910_std_arr, linestyle='', marker='.', color='blue', label='pre-quench 910-MHz')
 
-ax.errorbar(x_data_1088_arr, y_data_1088_arr, y_data_1088_std_arr, linestyle='', marker='.', color='red', label='1088')
+ax.errorbar(x_data_1088_arr, y_data_1088_arr, y_data_1088_std_arr, linestyle='', marker='.', color='red', label='pre-quench 1088-MHz')
 
-ax.errorbar(x_data_1147_arr, y_data_1147_arr, y_data_1147_std_arr, linestyle='', marker='.', color='green', label='1147')
+ax.errorbar(x_data_1147_arr, y_data_1147_arr, y_data_1147_std_arr, linestyle='', marker='.', color='green', label='pre-quench 1147-MHz')
 
 ax.plot([1, 1], [-1, 10**2 * quenching_curve_results_s_910['Quenching Offset']], color='black', linestyle='dashed')
 

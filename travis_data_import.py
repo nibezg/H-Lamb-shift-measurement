@@ -218,7 +218,6 @@ if not normalized_data_set_Q:
     summ_df['Slope STD (Normalized) [Rad/MHz]'] = summ_df['Slope STD [Rad/MHz]']
     summ_df['Offset STD (Normalized) [Rad]'] = summ_df['Offset STD [Rad]']
 
-
 summ_df.drop(columns=['Folder', 'B_x [Gauss]', 'B_y [Gauss]', 'Mass Flow Rate [CC]', 'Pre-Quench 910 State'], inplace=True)
 
 summ_df = summ_df.unstack(level=['Combiner/Harmonic']).reorder_levels(axis='columns', order=['Combiner/Harmonic', 'Data Field']).sort_index(axis='columns').rename(mapper={'Combiner 1, Harmonic 1': 'RF Combiner I Reference', 'Combiner 2, Harmonic 1': 'RF Combiner R Reference'}, level='Combiner/Harmonic', axis='columns')
@@ -255,12 +254,14 @@ fosof_lineshape_param_av_comb_t_df['Slope STD (Normalized) [Rad/MHz]'] = np.sqrt
 
 fosof_lineshape_param_av_comb_t_df['Combiner Uncertainty [MHz]'] = np.abs(fosof_lineshape_param_av_comb_t_df['Zero-crossing Frequency [MHz]'] - rf_comb_I_df['Zero-crossing Frequency [MHz]'])
 
+# IMPORTANT
+# 2019-06-21. I forgot that we actually decided not to include the combiner-related uncertainty. I set it to zero.
+fosof_lineshape_param_av_comb_t_df['Combiner Uncertainty [MHz]'] = 0
+
 # We need to shift all of the frequency by 1/2 of the frequency offset
 fosof_lineshape_param_av_comb_t_df['Zero-crossing Frequency [MHz]'] = fosof_lineshape_param_av_comb_t_df['Zero-crossing Frequency [MHz]'] + fosof_lineshape_param_av_comb_t_df['Offset Frequency [Hz]'] / 1E6 / 2
 
 fosof_lineshape_param_av_comb_t_df['Reduced Chi-Squared'] = (rf_comb_I_df['Reduced Chi-Squared'] + rf_comb_R_df['Reduced Chi-Squared']) / 2
-#%%
-# fosof_lineshape_param_av_comb_t_df['Zero-crossing Frequency STD (Normalized) [MHz]'] = fosof_lineshape_param_av_comb_t_df['Zero-crossing Frequency STD (Normalized) [MHz]'] * 1.02
 
 #%%
 # Whether to use the corrected or uncorrected data for imperfect power flatness in the waveguides
@@ -338,12 +339,16 @@ travis_corr_df['AC Shift Uncertainty [kHz]'] = np.sqrt(travis_corr_df['AC Shift 
 
 ac_shift_df = travis_corr_df[['Field Power Shift [kHz]', 'Beam RMS Radius Frequency Shift [kHz]', 'Beam RMS Radius Frequency Shift Uncertainty [kHz]', 'Fractional Offset Frequency Shift [kHz]', 'Fractional Offset Frequency Shift Uncertainty [kHz]', 'AC Shift [kHz]', 'AC Shift Uncertainty [kHz]', 'AC Shift Simulation Uncertainty [kHz]']]
 
-ac_shift_df['AC Shift Simulation Uncertainty [kHz]'] = ac_shift_df['Field Power Shift [kHz]'] * field_power_shift_unc
+#ac_shift_df['AC Shift Simulation Uncertainty [kHz]'] = ac_shift_df['Field Power Shift [kHz]'] * field_power_shift_unc
+
+ac_shift_df['AC Shift Simulation Uncertainty [kHz]'] = ac_shift_df['AC Shift [kHz]'] * field_power_shift_unc
 
 # Shifts needed for correcting the frequencies in MHz.
 ac_shift_MHz_df = ac_shift_df[['AC Shift [kHz]', 'AC Shift Uncertainty [kHz]', 'Fractional Offset Frequency Shift Uncertainty [kHz]', 'AC Shift Simulation Uncertainty [kHz]', 'Beam RMS Radius Frequency Shift Uncertainty [kHz]']]
 ac_shift_MHz_df.rename(columns={'AC Shift [kHz]': 'AC Shift [MHz]', 'AC Shift Uncertainty [kHz]': 'AC Shift Uncertainty [MHz]', 'Fractional Offset Frequency Shift Uncertainty [kHz]': 'Fractional Offset Frequency Shift Uncertainty [MHz]', 'AC Shift Simulation Uncertainty [kHz]': 'AC Shift Simulation Uncertainty [MHz]', 'Beam RMS Radius Frequency Shift Uncertainty [kHz]': 'Beam RMS Radius Frequency Shift Uncertainty [MHz]'}, inplace=True)
 ac_shift_MHz_df = ac_shift_MHz_df * 1E-3
+#%%
+ac_shift_df
 #%%
 '''
 Second-order Doppler shift correction
@@ -555,16 +560,7 @@ final_weights_df = df_with_weights.copy()
 final_weights_df['Total Uncertainty [kHz]'] = np.sqrt(final_weights_df['AC Shift Uncertainty [kHz]']**2 + final_weights_df['SOD Shift STD [kHz]']**2 + final_weights_df['Phase Control Uncertainty [kHz]']**2 + final_weights_df['Zero-crossing Frequency STD (Normalized) [kHz]']**2)
 #%%
 final_weights_df
-#%%
-final_weights_df
-#%%
-df_with_weights
-#%%
-np.sqrt(final_weights_df['Zero-crossing Frequency STD (Normalized) [kHz]']**2 + (final_weights_df['AC Shift [kHz]'] * 0.05)**2)
-#%%
-straight_line_fit_params(final_weights_df['Resonant Frequency [kHz]'], np.sqrt(final_weights_df['Zero-crossing Frequency STD (Normalized) [kHz]']**2))
-#%%
-straight_line_fit_params(final_weights_df['Resonant Frequency [kHz]'], np.sqrt(final_weights_df['Zero-crossing Frequency STD (Normalized) [kHz]']**2 + final_weights_df['Beam RMS Radius Frequency Shift Uncertainty [kHz]']**2 + final_weights_df['Fractional Offset Frequency Shift Uncertainty [kHz]']**2))
+
 #%%
 '''
 ====================
@@ -1231,7 +1227,7 @@ data_set_data_thesis_df = data_set_data_thesis_df[['Waveguide Separation [cm]', 
 #%%
 data_set_data_thesis_df
 #%%
-os.chdir(r'C:\Users\Helium1\Google Drive\Research\Lamb shift measurement\Thesis\exp_acq')
+os.chdir(r'E:\Google Drive\Research\Lamb shift measurement\Thesis\exp_acq')
 
 data_set_data_thesis_df.to_latex(buf='zero_cross_data_sets_t.txt', column_format='lllcccc', multirow=True, escape=False, index=False, index_names=True, longtable=True, header=[r'$D$\,\si{(cm)}', r'$V_{\mathrm{HV}}$\,\si{(\kilo\volt)}', r'$E_0$\,\si{(\volt/\centi\meter)}', r'$f_{zc}$\,\si{(\kilo\hertz)}', r'$\sigma_{f_{zc}}^{\mathrm{(C)}}$\,\si{(\kilo\hertz)}',r'$\chi_{r}^2$', r'$S$\,\si{(\milli\radian/\kilo\hertz)}'])
 #%%
@@ -1313,7 +1309,7 @@ final_weights_thesis_df['Waveguide Separation [cm]'] = final_weights_thesis_df['
 final_weights_thesis_df['Waveguide Electric Field [V/cm]'] = final_weights_thesis_df['Waveguide Electric Field [V/cm]'].astype(np.int16)
 
 #%%
-os.chdir(r'C:\Users\Helium1\Google Drive\Research\Lamb shift measurement\Thesis\exp_acq')
+os.chdir(r'E:\Google Drive\Research\Lamb shift measurement\Thesis\exp_acq')
 
 final_weights_thesis_df.to_latex(buf='final_weights.txt', column_format='lllcSSSccc', multirow=True, escape=False, index=False, index_names=True, header=[r'$D$\,\si{(cm)}', r'$V_{\mathrm{HV}}$\,\si{(\kilo\volt)}', r'$E_0$\,\si{(\volt/\centi\meter)}', r'Weight (\%)', r'$\Delta_{\mathrm{AC}}$\,\si{(\kilo\hertz)}', r'$\Delta_\mathrm{SOD}$\,\si{(\kilo\hertz)}', r'$\Delta_{c}^{(\mathrm{rf})}$\,\si{(\kilo\hertz)}', r'$\chi^2_{r}$', r'N', r'$f_0 \pm \sigma_\mathrm{stat} \pm \sigma_{\mathrm{sys}}$\,\si{(\kilo\hertz)}'])
 #%%
@@ -1338,7 +1334,7 @@ f0_thesis_df = pd.DataFrame(f0_thesis_s[['AC Shift [kHz]', 'Second-order Doppler
 
 f0_thesis_df = f0_thesis_df.reset_index()
 #%%
-f0_thesis_df['index'].values
+f0_thesis_df
 #%%
 os.chdir(r'C:\Users\Helium1\Google Drive\Research\Lamb shift measurement\Thesis\exp_acq')
 
